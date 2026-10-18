@@ -789,6 +789,11 @@ def build_gap(document: dict, requirements: list[dict], mapping: dict,
                 out["operation"] = f"{method.upper()} {path} [{op.get('operationId')}]"
                 sent = set(binding.get("query") or {}) | set(binding.get("body") or {})
                 unknown = sorted(sent - contract_fields(document, method.upper(), op, item))
+                unsent = sorted(contract_required(document, op, item) - sent)
+                if unsent:
+                    out["notes"].append("contract marks required but the backend binding does not send: "
+                                        + ", ".join(unsent) + " (the contract's required list is wrong, "
+                                        "or the binding is incomplete)")
                 if unknown:
                     out["notes"].append("backend binding sends fields this contract does not document: "
                                         + ", ".join(unknown) + " (undocumented aliases, or the binding "

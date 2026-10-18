@@ -1,13 +1,19 @@
 # Synchronization Status
 
 ## Backend
-Status: INITIALIZED
+Status: PUBLISHING — approved contract `2026.10.18-06d388692794`
+(`api/implemented/current.json`), published by the GitLab capitalix pipeline.
+
+## Reference consumer (Dart)
+Status: CONNECTED — `examples/dart-owner-customers` pins the current version;
+its traffic against a real backend conforms to the contract.
 
 ## Flutter
-Status: NOT_CONNECTED
+Status: NOT_CONNECTED — the app repository was not accessible; connect it with
+docs/DEVELOPER_QUICKSTART.md.
 
 ## Frontend
 Status: NOT_CONNECTED
 
 ## Latest Documentation
-See main branch commit history.
+`api/implemented/current.json` and `docs/ACCEPTANCE_EVIDENCE.md`.
