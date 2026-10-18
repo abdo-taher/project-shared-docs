@@ -1,19 +1,23 @@
 # Shared Documentation Agent Rules
 
-This repository is the source of truth for shared API contracts
-and approved business rules.
+This repository is the source of truth for shared API contracts and approved
+business rules.
 
-Before implementing any API-dependent task:
+## Consumers (frontend / mobile projects)
 
-1. Fetch the latest documentation from the default branch.
-2. Read the relevant Markdown files.
-3. Check API contracts and breaking changes.
-4. Compare the contracts with the local implementation.
-5. Apply required code changes.
-6. Run relevant tests.
-7. Report any incompatible or missing contracts.
+Do not fetch "the latest" contract during feature work. Pin it and use the
+pinned copy: follow [`docs/AI_AGENT_INSTRUCTIONS.md`](docs/AI_AGENT_INSTRUCTIONS.md)
+(copy it into your project's AGENTS.md) and
+[`docs/DEVELOPER_QUICKSTART.md`](docs/DEVELOPER_QUICKSTART.md).
 
-Never assume that locally cached documentation is current.
+## Working in this repository
 
-Never modify approved API contracts without coordination
-with the backend owner.
+- `api/implemented/` is written ONLY by the GitLab `alalmiyalhura/capitalix`
+  publish job. Never edit it by hand; `versions/<version>/` is immutable.
+- `business/` is written by the GitHub `abdo-taher/capitalix` "Publish Shared
+  Documentation" workflow.
+- `api/BACKEND_API.md` is the owner app's requirements (wishes), not the API.
+- Changes to `tools/`, `docs/`, `examples/` go through a pull request; the
+  `contract-toolkit` workflow must pass.
+- Never fabricate API contracts; never modify approved contracts; report any
+  incompatible or missing contract instead.

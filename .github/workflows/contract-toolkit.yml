@@ -1,0 +1,61 @@
+name: contract-toolkit
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    paths:
+      - "tools/**"
+      - "examples/**"
+      - "api/implemented/**"
+      - ".github/workflows/contract-toolkit.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  tool:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python3 -m unittest discover -s tools/tests -p "test_*.py" -v
+
+  reference-consumer:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: examples/dart-owner-customers
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - name: Restore and verify the pinned contract
+        id: pin
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -f .capitalix-contract/contract.lock ]; then
+            echo "pinned=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::no contract pinned yet"
+            exit 0
+          fi
+          python3 ../../tools/capitalix_contract.py sync
+          python3 ../../tools/capitalix_contract.py verify --remote
+          echo "pinned=true" >> "$GITHUB_OUTPUT"
+      - name: Fixtures are generated from the pinned contract
+        if: steps.pin.outputs.pinned == 'true'
+        run: sh tool/fixtures.sh && git diff --exit-code -- test/fixtures
+      - name: Analyze and test
+        if: steps.pin.outputs.pinned == 'true'
+        run: |
+          dart pub get
+          dart analyze --fatal-infos
+          dart test --exclude-tags backend
+      - name: Recorded traffic conforms to the contract
+        if: steps.pin.outputs.pinned == 'true'
+        run: python3 ../../tools/capitalix_contract.py validate build/traffic-mock.json
+      - name: Every API path in lib/ exists in the contract
+        if: steps.pin.outputs.pinned == 'true'
+        run: python3 ../../tools/capitalix_contract.py check lib/

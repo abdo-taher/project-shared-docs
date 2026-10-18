@@ -1,0 +1,8 @@
+{
+ "message": "string",
+ "data": {
+  "token": "string",
+  "token_id": 1,
+  "expires_at": "string"
+ }
+}

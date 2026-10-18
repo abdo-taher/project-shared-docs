@@ -1,0 +1,5 @@
+.dart_tool/
+build/
+pubspec.lock
+# Restored by `capitalix_contract.py sync` from contract.lock (6 MB).
+.capitalix-contract/openapi.json

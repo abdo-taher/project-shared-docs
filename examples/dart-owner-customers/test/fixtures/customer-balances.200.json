@@ -1,0 +1,23 @@
+{
+ "message": "string",
+ "data": {
+  "items": [
+   {
+    "customer_reference": "string",
+    "name": "string",
+    "mobile": "string",
+    "invoice_count": 1,
+    "paid_amount": "string",
+    "remaining_amount": "string",
+    "payment_status": "PARTIALLY_PAID",
+    "has_debt": true,
+    "has_overdue": true
+   }
+  ],
+  "meta": {
+   "current_page": 1,
+   "last_page": 4,
+   "total": 57
+  }
+ }
+}

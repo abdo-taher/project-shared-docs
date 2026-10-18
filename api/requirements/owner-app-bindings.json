@@ -1,0 +1,1321 @@
+{
+ "source": {
+  "repository": "github:abdo-taher/capitalix",
+  "path": "tests/Feature/ApiContract/Owner/bindings.json",
+  "commit": "c534d272df6bb4173aa01f8e9ab0d802c5f2bf60",
+  "pushed_to_remote": false,
+  "note": "Backend Owner-API conformance bindings (Sprint 12). Copied on 2026-10-19 from a development commit that was NOT on any remote branch; it is the backend team working mapping, not published authority. null = the suite binds no route. Refresh: see api/requirements/README.md."
+ },
+ "bindings": {
+  "authLogin": {
+   "route": "POST api/auth/login",
+   "query": {},
+   "body": {
+    "phone": "512345678",
+    "phone_code": "966",
+    "password": "Passw0rd!x",
+    "device_token": "fcm-audit-token",
+    "type": "android"
+   }
+  },
+  "authRegister": {
+   "route": "POST api/auth/onboarding/applications",
+   "query": {},
+   "body": {
+    "name": "مالك جديد",
+    "phone": "512345671",
+    "phone_code": "966",
+    "email": "new-owner@capitalix.test",
+    "password": "Secret123!",
+    "password_confirmation": "Secret123!",
+    "business_name": "مطعم بيت الشاورما",
+    "activity_type": "مطاعم ومقاهي",
+    "commercial_register": "1010445872",
+    "tax_number": "310445872900003",
+    "city_id": "{{city.id}}",
+    "address": "حي العليا، الرياض",
+    "business_phone": "512458800",
+    "business_email": "info@business.sa",
+    "accept_terms": true,
+    "device_token": "fcm-contract-device",
+    "type": "android"
+   }
+  },
+  "authSendCode": {
+   "route": "POST api/auth/onboarding/applications/send-code",
+   "query": {},
+   "body": {
+    "phone": "512345678",
+    "phone_code": "966"
+   }
+  },
+  "authVerifyCode": {
+   "route": "POST api/auth/onboarding/applications/verify",
+   "query": {},
+   "body": {
+    "phone": "512345678",
+    "phone_code": "966",
+    "code": "{{applicant.otp}}",
+    "device_token": "fcm-audit-token",
+    "type": "android"
+   }
+  },
+  "passwordForget": {
+   "route": "POST api/auth/password-recovery/send-code",
+   "query": {},
+   "body": {
+    "phone": "512345678",
+    "phone_code": "966"
+   }
+  },
+  "passwordVerifyCode": {
+   "route": "POST api/auth/password-recovery/verify-code",
+   "query": {},
+   "body": {
+    "phone": "512345678",
+    "phone_code": "966",
+    "code": "1234"
+   }
+  },
+  "passwordReset": {
+   "route": "POST api/auth/password-recovery/reset",
+   "query": {},
+   "body": {
+    "phone": "512345678",
+    "phone_code": "966",
+    "code": "1234",
+    "password": "Passw0rd!x",
+    "password_confirmation": "Passw0rd!x"
+   }
+  },
+  "authProfile": {
+   "route": "GET api/auth/profile",
+   "query": {},
+   "body": {}
+  },
+  "authLogout": {
+   "route": "POST api/auth/logout",
+   "query": {},
+   "body": {}
+  },
+  "registrationRequest": {
+   "route": "GET api/auth/subscriptions/registration-request",
+   "query": {},
+   "body": {}
+  },
+  "registrationRequestUpdate": {
+   "route": "POST api/auth/subscriptions/registration/resubmit",
+   "query": {},
+   "body": {
+    "name": "مالك جديد",
+    "phone": "512345672",
+    "phone_code": "966",
+    "email": "applicant-review@capitalix.test",
+    "business_name": "مطعم بيت الشاورما",
+    "activity_type": "مطاعم ومقاهي",
+    "commercial_register": "1010445872",
+    "tax_number": "310445872900003",
+    "city_id": "{{city.id}}",
+    "address": "حي العليا، الرياض",
+    "business_phone": "512458801",
+    "business_email": "cafe@business.sa",
+    "accept_terms": true,
+    "device_token": "fcm-contract-device",
+    "type": "android"
+   }
+  },
+  "subscriptionPlans": {
+   "route": "GET api/owner/general/packages",
+   "query": {},
+   "body": {}
+  },
+  "subscriptionPaymentInfo": {
+   "route": "GET api/auth/onboarding/applications/{reference}/subscription-summary",
+   "query": {},
+   "body": {}
+  },
+  "subscriptionPay": {
+   "route": "POST api/auth/onboarding/applications/{reference}/subscription-payment",
+   "query": {},
+   "body": {}
+  },
+  "dashboard": {
+   "route": "GET api/owner/dashboard/owner",
+   "query": {
+    "period": "month",
+    "branch_id": "{{branch.id}}"
+   },
+   "body": {}
+  },
+  "notifications": {
+   "route": "GET api/owner/notifications/notifications",
+   "query": {
+    "status": "all",
+    "period": "all",
+    "page": 1
+   },
+   "body": {}
+  },
+  "notificationDetails": {
+   "route": "GET api/owner/notifications/notifications/{uuid}",
+   "query": {},
+   "body": {}
+  },
+  "notificationsUnreadCount": {
+   "route": "GET api/owner/notifications/notifications/unread-count",
+   "query": {},
+   "body": {}
+  },
+  "notificationRead": {
+   "route": "POST api/owner/notifications/notifications/{uuid}/read",
+   "query": {},
+   "body": {}
+  },
+  "notificationUnread": {
+   "route": "POST api/owner/notifications/notifications/{uuid}/unread",
+   "query": {},
+   "body": {}
+  },
+  "notificationsReadAll": {
+   "route": "POST api/owner/notifications/notifications/read-all",
+   "query": {},
+   "body": {}
+  },
+  "notificationDelete": null,
+  "inventoryItems": {
+   "route": "GET api/owner/inventory/inventory/items",
+   "query": {
+    "status": "available,low,out",
+    "page": 1
+   },
+   "body": {}
+  },
+  "inventoryItemDetails": {
+   "route": "GET api/owner/inventory/inventory/movements",
+   "query": {},
+   "body": {}
+  },
+  "inventoryItemLimits": {
+   "route": "POST api/owner/inventory/inventory/items/{item}/limits",
+   "query": {},
+   "body": {
+    "min_qty": 5,
+    "target_qty": 20
+   }
+  },
+  "inventoryItemStock": {
+   "route": "PUT api/owner/inventory/inventory/items/{item}/stock",
+   "query": {},
+   "body": {
+    "unit": "كجم",
+    "qty": 10,
+    "supplier_id": "{{supplier.id}}",
+    "branch_id": "{{branch.id}}",
+    "note": "audit",
+    "idempotency_key": "contract-inventory-item-stock"
+   }
+  },
+  "inventoryFormOptions": {
+   "route": "GET api/owner/forms/form-options/inventory",
+   "query": {},
+   "body": {}
+  },
+  "inventoryItemCreate": {
+   "route": "POST api/owner/inventory/inventory/items",
+   "query": {},
+   "body": {
+    "kind": "ready",
+    "item_id": "{{catalog_product.id}}",
+    "unit": "عبوة",
+    "opening_qty": 50,
+    "min_qty": 20,
+    "target_qty": 100,
+    "unit_cost": 2.5,
+    "supplier_id": "{{supplier.ref}}",
+    "branch_id": "{{branch.id}}",
+    "idempotency_key": "contract-inventory-item-create"
+   }
+  },
+  "inventorySync": {
+   "route": "POST api/owner/integrations/integrations/{provider}/sync-products",
+   "query": {},
+   "body": {}
+  },
+  "inventoryRecipes": {
+   "route": "GET api/owner/inventory/inventory/recipes",
+   "query": {},
+   "body": {}
+  },
+  "inventoryRecipeDetails": {
+   "route": "GET api/owner/inventory/catalog/products/{product_reference}/recipe-components",
+   "query": {},
+   "body": {}
+  },
+  "inventoryRecipeSave": {
+   "route": "POST api/owner/inventory/catalog/products/{product_reference}/recipe-components",
+   "query": {},
+   "body": {
+    "components": [
+     {
+      "item_id": "{{item.ref}}",
+      "quantity": 0.15
+     }
+    ]
+   }
+  },
+  "invoices": {
+   "route": "GET api/owner/sales/invoices",
+   "query": {
+    "status": "paid",
+    "page": 1
+   },
+   "body": {}
+  },
+  "invoiceDetails": {
+   "route": "GET api/owner/sales/invoices/{id}",
+   "query": {},
+   "body": {}
+  },
+  "invoiceFormOptions": {
+   "route": "GET api/owner/sales/invoices/form-options",
+   "query": {},
+   "body": {}
+  },
+  "invoiceCreate": {
+   "route": "POST api/owner/sales/invoices",
+   "query": {},
+   "body": {
+    "type": "tax",
+    "is_direct": false,
+    "customer_id": "{{customer.id}}",
+    "branch_id": "{{branch.id}}",
+    "date": "2026-09-14",
+    "due_date": "2026-09-29",
+    "payment_method_id": "cash",
+    "notes": "توريد",
+    "lines": [
+     {
+      "product_id": "{{catalog_product.id}}",
+      "quantity": 3,
+      "price": 24
+     }
+    ]
+   }
+  },
+  "invoiceCollectionMethods": {
+   "route": "GET api/owner/sales/invoices/collection-methods",
+   "query": {},
+   "body": {}
+  },
+  "invoiceCollectionScan": null,
+  "invoiceCollect": {
+   "route": "POST api/owner/sales/invoices/collect",
+   "query": {},
+   "body": {
+    "invoice_id": "{{invoice.ref}}",
+    "amount": 100,
+    "date": "2026-09-14",
+    "method_id": "cash",
+    "reference": "TRX-1"
+   }
+  },
+  "quotes": {
+   "route": "GET api/owner/sales/quotes",
+   "query": {
+    "page": 1
+   },
+   "body": {}
+  },
+  "quoteDetails": {
+   "route": "GET api/owner/sales/quotes/{reference}",
+   "query": {},
+   "body": {}
+  },
+  "quoteCreate": {
+   "route": "POST api/owner/sales/quotes",
+   "query": {},
+   "body": {
+    "is_direct": false,
+    "customer_id": "{{customer.id}}",
+    "branch_id": "{{branch.id}}",
+    "date": "2026-09-14",
+    "due_date": "2026-09-29",
+    "payment_method_id": "cash",
+    "notes": "توريد",
+    "lines": [
+     {
+      "product_id": "{{catalog_product.id}}",
+      "quantity": 3,
+      "price": 24
+     }
+    ]
+   }
+  },
+  "quoteConvert": {
+   "route": "POST api/owner/sales/quotes/{reference}/convert",
+   "query": {},
+   "body": {
+    "type": "tax"
+   }
+  },
+  "purchaseOrders": {
+   "route": "GET api/owner/purchases/purchase-orders",
+   "query": {
+    "status": "ready_for_review",
+    "page": 1
+   },
+   "body": {}
+  },
+  "purchaseOrderDetails": {
+   "route": "GET api/owner/purchases/purchase-orders/{reference}",
+   "query": {},
+   "body": {}
+  },
+  "purchaseFormOptions": {
+   "route": "GET api/owner/forms/form-options/purchases",
+   "query": {},
+   "body": {}
+  },
+  "purchaseOrderCreate": {
+   "route": "POST api/owner/purchases/purchase-orders",
+   "query": {},
+   "body": {
+    "type": "manual",
+    "supplier_id": "{{supplier.ref}}",
+    "branch_id": "{{branch.id}}",
+    "expected_date": "2026-09-20",
+    "notes": "طلب أسبوعي",
+    "lines": [
+     {
+      "item_id": "{{item.ref}}",
+      "name": "لحم بقري مفروم",
+      "is_stock": true,
+      "quantity": 10,
+      "unit_price": 42
+     }
+    ]
+   }
+  },
+  "purchaseOrderUpdate": {
+   "route": "PATCH api/owner/purchases/purchase-orders/{reference}",
+   "query": {},
+   "body": {
+    "type": "manual",
+    "supplier_id": "{{supplier.ref}}",
+    "branch_id": "{{branch.id}}",
+    "expected_date": "2026-09-20",
+    "notes": "طلب أسبوعي",
+    "lines": [
+     {
+      "item_id": "{{item.ref}}",
+      "name": "لحم بقري مفروم",
+      "is_stock": true,
+      "quantity": 10,
+      "unit_price": 42
+     }
+    ]
+   }
+  },
+  "purchaseOrderGenerate": {
+   "route": "POST api/owner/purchases/purchase-orders/generate",
+   "query": {},
+   "body": {}
+  },
+  "purchaseOrderSend": {
+   "route": "POST api/owner/purchases/purchase-orders/{reference}/send",
+   "query": {},
+   "body": {}
+  },
+  "purchaseOrderInvoice": {
+   "route": "POST api/owner/purchases/purchase-orders/{reference}/supplier-invoice",
+   "query": {},
+   "body": {
+    "number": "F-1001",
+    "date": "2026-09-14"
+   }
+  },
+  "purchaseOrderDelivery": {
+   "route": "PATCH api/owner/purchases/purchase-orders/{reference}/delivery",
+   "query": {},
+   "body": {}
+  },
+  "purchaseOrderReceive": {
+   "route": "POST api/owner/purchases/purchase-orders/{reference}/receipts",
+   "query": {},
+   "body": {
+    "lines": [
+     {
+      "id": "{{purchase_order_in_delivery_line.ref}}",
+      "received_qty": 12
+     }
+    ],
+    "idempotency_key": "contract-purchase-order-receive"
+   }
+  },
+  "purchaseOrderCancel": {
+   "route": "POST api/owner/purchases/purchase-orders/{reference}/cancel",
+   "query": {},
+   "body": {
+    "reason": "audit reason"
+   }
+  },
+  "suppliers": {
+   "route": "GET api/owner/purchases/suppliers",
+   "query": {},
+   "body": {}
+  },
+  "supplierDetails": {
+   "route": "GET api/owner/purchases/suppliers/{id}",
+   "query": {},
+   "body": {}
+  },
+  "supplierCreate": {
+   "route": "POST api/owner/purchases/suppliers",
+   "query": {},
+   "body": {
+    "name": "مؤسسة الخضار",
+    "phone": "551234417",
+    "whatsapp": "551234417",
+    "person": "أحمد",
+    "commercial_register": "1010101011",
+    "vat_number": "300000000000013",
+    "item_ids": [
+     "{{item.ref}}"
+    ],
+    "is_active": 1
+   }
+  },
+  "supplierUpdate": {
+   "route": "PUT api/owner/purchases/suppliers/{id}",
+   "query": {},
+   "body": {
+    "name": "مؤسسة الخضار",
+    "phone": "551234417",
+    "whatsapp": "551234417",
+    "person": "أحمد",
+    "commercial_register": "1010101011",
+    "vat_number": "300000000000013",
+    "item_ids": [
+     "{{item.ref}}"
+    ],
+    "is_active": 1
+   }
+  },
+  "supplierToggleStatus": {
+   "route": "POST api/owner/purchases/suppliers/{id}/status",
+   "query": {},
+   "body": {
+    "is_active": 1
+   }
+  },
+  "supplierPaymentScan": null,
+  "supplierPayInvoice": {
+   "route": "POST api/owner/purchases/suppliers/pay",
+   "query": {},
+   "body": {
+    "invoice_id": "{{supplier_invoice.ref}}",
+    "amount": 100,
+    "date": "2026-09-14",
+    "reference": "TRX-1"
+   }
+  },
+  "expenses": {
+   "route": "GET api/owner/expenses/expense-register",
+   "query": {
+    "page": 1
+   },
+   "body": {}
+  },
+  "expenseDetails": {
+   "route": "GET api/owner/expenses/expense-register/{reference}",
+   "query": {},
+   "body": {}
+  },
+  "expenseAnalysis": {
+   "route": "GET api/owner/expenses/expense-analysis",
+   "query": {},
+   "body": {}
+  },
+  "expenseFormOptions": {
+   "route": "GET api/owner/forms/form-options/expenses",
+   "query": {},
+   "body": {}
+  },
+  "expenseScan": {
+   "route": "POST api/owner/expenses/expenses/documents",
+   "query": {},
+   "body": {}
+  },
+  "expenseCreate": {
+   "route": "POST api/owner/expenses/expenses",
+   "query": {},
+   "body": {
+    "number": "INV-5501",
+    "date": "2026-09-10",
+    "vendor": "شركة الكهرباء",
+    "description": "فاتورة كهرباء",
+    "due_date": "2026-09-30",
+    "category_id": "utilities",
+    "operation_type": "tax_invoice",
+    "amount": 100,
+    "vat": 15,
+    "total": 115,
+    "payment_status": "paid",
+    "payment_method_id": "cash",
+    "branch_id": "{{branch.id}}"
+   }
+  },
+  "expenseUpdate": {
+   "route": "PUT api/owner/expenses/expenses/documents/{document}",
+   "query": {},
+   "body": {
+    "number": "INV-5501",
+    "date": "2026-09-10",
+    "vendor": "شركة الكهرباء",
+    "description": "فاتورة كهرباء",
+    "due_date": "2026-09-30",
+    "category_id": "utilities",
+    "operation_type": "tax_invoice",
+    "amount": 100,
+    "vat": 15,
+    "total": 115,
+    "payment_status": "paid",
+    "payment_method_id": "cash",
+    "branch_id": "{{branch.id}}"
+   }
+  },
+  "vatSummary": {
+   "route": "GET api/owner/tax/tax/vat-returns/summary",
+   "query": {
+    "type": "monthly",
+    "year": 2026,
+    "period": 8
+   },
+   "body": {}
+  },
+  "vatExport": {
+   "route": "POST api/owner/tax/tax/vat-returns/export",
+   "query": {
+    "kind": "return",
+    "format": "pdf"
+   },
+   "body": {
+    "type": "monthly",
+    "year": 2026,
+    "period": 8,
+    "kind": "return",
+    "format": "pdf"
+   }
+  },
+  "vatInvoiceUpload": {
+   "route": "POST api/owner/tax/tax/documents/upload",
+   "query": {},
+   "body": {
+    "number": "INV-5501",
+    "date": "2026-09-10",
+    "vendor": "شركة الكهرباء",
+    "description": "فاتورة كهرباء",
+    "due_date": "2026-09-30",
+    "category_id": "utilities",
+    "operation_type": "tax_invoice",
+    "amount": 100,
+    "vat": 15,
+    "total": 115,
+    "payment_status": "paid",
+    "payment_method_id": "cash",
+    "branch_id": "{{branch.id}}"
+   }
+  },
+  "zakat": {
+   "route": "GET api/owner/tax/zakat/sessions/{uuid}",
+   "query": {},
+   "body": {}
+  },
+  "zakatSubmit": {
+   "route": "POST api/owner/tax/zakat/calculations/{uuid}/submit",
+   "query": {},
+   "body": {
+    "period": "2026",
+    "note": "حساب أولي",
+    "manual": [
+     {
+      "id": "add_other",
+      "amount": 15000
+     }
+    ],
+    "version": 1
+   }
+  },
+  "zakatApprove": {
+   "route": "POST api/owner/tax/zakat/sessions/{uuid}/approve",
+   "query": {},
+   "body": {
+    "period": "2026",
+    "note": "اعتماد",
+    "manual": [],
+    "version": 1
+   }
+  },
+  "zakatHistory": {
+   "route": "GET api/owner/tax/zakat/history",
+   "query": {},
+   "body": {}
+  },
+  "statementsSummary": {
+   "route": "GET api/auth/accounting/financial-statements",
+   "query": {},
+   "body": {}
+  },
+  "accounts": {
+   "route": "GET api/auth/accounts",
+   "query": {},
+   "body": {}
+  },
+  "journalEntries": {
+   "route": "GET api/auth/accounting/journal-entries",
+   "query": {},
+   "body": {}
+  },
+  "journalEntryDetails": {
+   "route": "GET api/auth/accounting/journal-entries/{reference}",
+   "query": {},
+   "body": {}
+  },
+  "journalEntryRequest": {
+   "route": "POST api/auth/accounting/journal-entries/{reference}/request",
+   "query": {},
+   "body": {
+    "kind": "edit",
+    "reason": "المبلغ غير صحيح"
+   }
+  },
+  "ledger": {
+   "route": "GET api/owner/accounting/general-ledger",
+   "query": {
+    "period_type": "month",
+    "year": 2026,
+    "period": 9
+   },
+   "body": {}
+  },
+  "trialBalance": {
+   "route": "GET api/auth/accounting/reports/trial-balance",
+   "query": {},
+   "body": {}
+  },
+  "financialStatement": {
+   "route": "GET api/auth/accounting/financial-statements/{statement}",
+   "query": {
+    "kind": "income"
+   },
+   "body": {}
+  },
+  "profitReport": {
+   "route": "GET api/owner/reports/owner/reporting/financial",
+   "query": {},
+   "body": {}
+  },
+  "monthlyReport": {
+   "route": "GET api/owner/reports/monthly-reports/{reportId}",
+   "query": {
+    "id": "2026-07"
+   },
+   "body": {}
+  },
+  "monthlyReportCustomize": {
+   "route": "POST api/owner/reports/monthly-reports/{reportId}/customize",
+   "query": {},
+   "body": {
+    "hidden": [
+     "tax"
+    ],
+    "extras": [
+     "cash"
+    ]
+   }
+  },
+  "statementsExport": {
+   "route": "GET api/owner/reports/statements/export",
+   "query": {
+    "report": "income",
+    "format": "pdf",
+    "period_type": "month",
+    "year": 2026,
+    "period": 8
+   },
+   "body": {}
+  },
+  "statementsExportBundle": {
+   "route": "POST api/owner/reports/statements/export-bundle",
+   "query": {},
+   "body": {
+    "period_type": "month",
+    "year": 2026,
+    "period": 8,
+    "branch_id": "{{branch.id}}",
+    "format": "pdf",
+    "reports": [
+     "income",
+     "balance"
+    ]
+   }
+  },
+  "waste": {
+   "route": "GET api/owner/inventory/waste/analytics",
+   "query": {
+    "period": "month",
+    "branch_id": "{{branch.id}}"
+   },
+   "body": {}
+  },
+  "pricing": {
+   "route": "GET api/owner/pricing/pricing/register",
+   "query": {
+    "status": "pending"
+   },
+   "body": {}
+  },
+  "pricingDetails": {
+   "route": "GET api/owner/pricing/pricing/register/{product_reference}",
+   "query": {},
+   "body": {}
+  },
+  "pricingApprove": {
+   "route": "POST api/owner/pricing/pricing/{product_reference}/approve",
+   "query": {},
+   "body": {
+    "final_price": 26,
+    "version": 1
+   }
+  },
+  "meetings": {
+   "route": "GET api/owner/meetings/meetings",
+   "query": {
+    "type": "upcoming"
+   },
+   "body": {}
+  },
+  "meetingDetails": {
+   "route": "GET api/owner/meetings/meetings/{meetingReference}",
+   "query": {},
+   "body": {}
+  },
+  "meetingSlots": {
+   "route": "GET api/owner/meetings/meetings/availability",
+   "query": {},
+   "body": {}
+  },
+  "meetingBook": {
+   "route": "POST api/owner/meetings/meetings/availability/{public_reference}/book",
+   "query": {},
+   "body": {
+    "date": "2026-09-22",
+    "time": "10:00",
+    "subject": "مراجعة الإقفال",
+    "notes": "إحضار كشف البنك"
+   }
+  },
+  "meetingUpdate": {
+   "route": "PUT api/owner/meetings/meetings/{meetingReference}",
+   "query": {},
+   "body": {
+    "date": "2026-09-22",
+    "time": "10:00",
+    "subject": "مراجعة الإقفال",
+    "notes": "إحضار كشف البنك"
+   }
+  },
+  "meetingCancel": {
+   "route": "POST api/owner/meetings/meetings/{meetingReference}/cancel",
+   "query": {},
+   "body": {}
+  },
+  "reports": {
+   "route": "GET api/auth/accountant-reports",
+   "query": {},
+   "body": {}
+  },
+  "reportDetails": {
+   "route": "GET api/auth/accountant-reports/{reportId}",
+   "query": {},
+   "body": {}
+  },
+  "account": {
+   "route": "GET api/auth/account",
+   "query": {},
+   "body": {}
+  },
+  "subscriptionDetails": {
+   "route": "GET api/owner/general/account/subscription",
+   "query": {},
+   "body": {}
+  },
+  "accountUpdate": {
+   "route": "POST api/auth/account/profile",
+   "query": {},
+   "body": {
+    "name": "عبدالله الشمري",
+    "email": "owner@capitalix.test",
+    "phone": "512345678",
+    "phone_code": "966"
+   }
+  },
+  "accountPhoneSendCode": {
+   "route": "POST api/auth/account/profile/send-code",
+   "query": {},
+   "body": {
+    "phone": "512345679",
+    "phone_code": "966"
+   }
+  },
+  "accountPhoneVerify": {
+   "route": "POST api/auth/account/profile/verify-mobile",
+   "query": {},
+   "body": {
+    "phone": "512345679",
+    "phone_code": "966",
+    "code": "123456"
+   }
+  },
+  "accountPasswordSendCode": null,
+  "accountPasswordChange": {
+   "route": "POST api/auth/account/password",
+   "query": {},
+   "body": {
+    "phone": "512345678",
+    "phone_code": "966",
+    "code": "123456",
+    "current_password": "Passw0rd!x",
+    "password": "NewPassw0rd!",
+    "password_confirmation": "NewPassw0rd!"
+   }
+  },
+  "moreSummary": {
+   "route": "GET api/owner/summary/more/summary",
+   "query": {},
+   "body": {}
+  },
+  "businessSettings": {
+   "route": "GET api/owner/settings/organizations/current",
+   "query": {},
+   "body": {}
+  },
+  "businessSettingsUpdate": {
+   "route": "PATCH api/owner/settings/organizations/current",
+   "query": {},
+   "body": {
+    "name": "مطعم بيت الشاورما",
+    "activity_type": "مطاعم ومقاهي",
+    "email": "info@business.test",
+    "phone": "512458800",
+    "phone_code": "966",
+    "landline": "0112345678",
+    "contact_name": "عبدالله",
+    "city_id": "1",
+    "address": "حي العليا، الرياض"
+   }
+  },
+  "branches": {
+   "route": "GET api/owner/settings/branches/selectable",
+   "query": {
+    "status": "active"
+   },
+   "body": {}
+  },
+  "branchCreate": {
+   "route": "POST api/owner/settings/branches",
+   "query": {},
+   "body": {
+    "name": "فرع النخيل",
+    "code": "BR-009",
+    "city_id": "1",
+    "address": "حي النخيل، الرياض",
+    "phone": "0112345678",
+    "email": "nakheel@business.test",
+    "manager": "فهد",
+    "is_active": 1
+   }
+  },
+  "branchUpdate": {
+   "route": "PUT api/owner/settings/branches/{reference}",
+   "query": {},
+   "body": {
+    "name": "فرع العليا",
+    "code": "BR-002",
+    "city_id": "1",
+    "address": "حي النخيل، الرياض",
+    "phone": "0112345678",
+    "email": "nakheel@business.test",
+    "manager": "فهد",
+    "is_active": 1
+   }
+  },
+  "branchToggleStatus": {
+   "route": "POST api/owner/settings/branches/{reference}/activate",
+   "query": {},
+   "body": {
+    "is_active": 1
+   }
+  },
+  "branchSetMain": {
+   "route": "POST api/owner/settings/branches/{reference}/main",
+   "query": {},
+   "body": {}
+  },
+  "branchDelete": {
+   "route": "DELETE api/owner/settings/branches/{reference}",
+   "query": {},
+   "body": {}
+  },
+  "businessUsers": {
+   "route": "GET api/owner/settings/users",
+   "query": {
+    "status": "active"
+   },
+   "body": {}
+  },
+  "businessUserFormOptions": {
+   "route": "GET api/owner/settings/users/form-options",
+   "query": {},
+   "body": {}
+  },
+  "businessUserCreate": {
+   "route": "POST api/owner/settings/users",
+   "query": {},
+   "body": {
+    "name": "نورة الدوسري",
+    "phone": "553318822",
+    "phone_code": "966",
+    "email": "noura@capitalix.test",
+    "job_title": "محاسبة",
+    "role_id": "{{role.ref}}",
+    "all_branches": 0,
+    "branch_ids": [
+     "{{branch.ref}}"
+    ]
+   }
+  },
+  "businessUserUpdate": {
+   "route": "POST api/owner/settings/users/{userReference}",
+   "query": {},
+   "body": {
+    "name": "ماهر السبيعي",
+    "phone": "553318820",
+    "phone_code": "966",
+    "email": "maher@capitalix.test",
+    "job_title": "محاسبة",
+    "role_id": "{{role.ref}}",
+    "all_branches": 0,
+    "branch_ids": [
+     "{{branch.ref}}"
+    ],
+    "is_active": 1,
+    "version": "{{member.version}}"
+   }
+  },
+  "businessUserToggleStatus": {
+   "route": "POST api/owner/settings/users/{userReference}/status",
+   "query": {},
+   "body": {
+    "is_active": 0,
+    "version": "{{member.version}}"
+   }
+  },
+  "businessUserResendInvite": {
+   "route": "POST api/owner/settings/users/{userReference}/resend-invite",
+   "query": {},
+   "body": {}
+  },
+  "businessUserDelete": {
+   "route": "DELETE api/owner/settings/identity/users/{userReference}",
+   "query": {},
+   "body": {}
+  },
+  "businessRoles": {
+   "route": "GET api/owner/settings/identity/roles",
+   "query": {},
+   "body": {}
+  },
+  "auditLog": {
+   "route": "GET api/owner/settings/audit-log",
+   "query": {
+    "page": 1
+   },
+   "body": {}
+  },
+  "appSettings": {
+   "route": "GET api/auth/settings",
+   "query": {},
+   "body": {}
+  },
+  "appSettingsUpdate": {
+   "route": "POST api/auth/settings",
+   "query": {},
+   "body": {
+    "notifications_enabled": 1,
+    "disabled_categories": [
+     "purchases"
+    ],
+    "lang": "ar"
+   }
+  },
+  "accountDelete": {
+   "route": "POST api/auth/account/delete",
+   "query": {},
+   "body": {
+    "reason": "audit reason"
+   }
+  },
+  "customers": {
+   "route": "GET api/owner/sales/customer-balances",
+   "query": {
+    "status": "active",
+    "type": "business"
+   },
+   "body": {}
+  },
+  "customerDetails": {
+   "route": "GET api/owner/sales/customers/{id}",
+   "query": {},
+   "body": {}
+  },
+  "customerCreate": {
+   "route": "POST api/owner/sales/customers",
+   "query": {},
+   "body": {
+    "name": "مؤسسة النخبة",
+    "type": "business",
+    "is_active": 1,
+    "phone": "551234568",
+    "email": "nukhba@customer.test",
+    "vat_number": "300000000000023",
+    "commercial_register": "1010101012",
+    "national_address": "الرياض"
+   }
+  },
+  "customerUpdate": {
+   "route": "PUT api/owner/sales/customers/{id}",
+   "query": {},
+   "body": {
+    "name": "مؤسسة النخبة",
+    "type": "business",
+    "is_active": 1,
+    "phone": "551234568",
+    "email": "nukhba@customer.test",
+    "vat_number": "300000000000023",
+    "commercial_register": "1010101012",
+    "national_address": "الرياض"
+   }
+  },
+  "customerDelete": {
+   "route": "DELETE api/owner/sales/customers/{id}",
+   "query": {},
+   "body": {}
+  },
+  "products": {
+   "route": "GET api/owner/inventory/catalog-products",
+   "query": {},
+   "body": {}
+  },
+  "productDetails": {
+   "route": "GET api/owner/inventory/catalog-products/{catalogProduct}",
+   "query": {},
+   "body": {}
+  },
+  "productCreate": {
+   "route": "POST api/owner/inventory/catalog-products",
+   "query": {},
+   "body": {
+    "category_id": "{{catalog_category.id}}",
+    "sub_category_id": "{{catalog_subcategory.id}}",
+    "name": "لاتيه",
+    "price": 18,
+    "vat_rate": 15,
+    "is_active": 1
+   }
+  },
+  "productUpdate": {
+   "route": "PUT api/owner/inventory/catalog-products/{catalogProduct}",
+   "query": {},
+   "body": {
+    "category_id": "{{catalog_category.id}}",
+    "sub_category_id": "{{catalog_subcategory.id}}",
+    "name": "لاتيه",
+    "price": 18,
+    "vat_rate": 15,
+    "is_active": 1
+   }
+  },
+  "productCategories": {
+   "route": "GET api/owner/inventory/catalog-categories",
+   "query": {},
+   "body": {}
+  },
+  "productCategoryCreate": {
+   "route": "POST api/owner/inventory/catalog-categories",
+   "query": {},
+   "body": {
+    "name": "المشروبات"
+   }
+  },
+  "assets": {
+   "route": "GET api/owner/accounting/assets",
+   "query": {
+    "status": "active"
+   },
+   "body": {}
+  },
+  "assetDetails": {
+   "route": "GET api/owner/accounting/assets/{asset}",
+   "query": {},
+   "body": {}
+  },
+  "payrollRun": {
+   "route": "GET api/owner/payroll/payroll/runs/{id}",
+   "query": {
+    "period": "2026-08"
+   },
+   "body": {}
+  },
+  "payrollRunCreate": {
+   "route": "POST api/owner/payroll/payroll/runs",
+   "query": {},
+   "body": {
+    "period": "2026-09"
+   }
+  },
+  "payrollRunRate": {
+   "route": "POST api/owner/payroll/payroll/runs/{runId}/overtime-rate",
+   "query": {},
+   "body": {
+    "overtime_rate": 45,
+    "version": 1
+   }
+  },
+  "payrollLineUpdate": {
+   "route": "PATCH api/owner/payroll/payroll/runs/{runId}/lines/{lineId}",
+   "query": {},
+   "body": {
+    "employee_id": "{{employee.ref}}",
+    "absence_days": 1,
+    "overtime_hours": 2,
+    "extra_allowances": 0,
+    "extra_deductions": 0,
+    "notes": "إضافي",
+    "version": 1
+   }
+  },
+  "payrollRunSubmit": {
+   "route": "POST api/owner/payroll/payroll/runs/{runId}/review",
+   "query": {},
+   "body": {
+    "version": 1
+   }
+  },
+  "payrollRunApprove": {
+   "route": "POST api/owner/payroll/payroll/runs/{runId}/approve",
+   "query": {},
+   "body": {
+    "version": 1
+   }
+  },
+  "payrollRunExport": {
+   "route": "POST api/owner/payroll/payroll-runs/{runId}/export-payment-file",
+   "query": {},
+   "body": {}
+  },
+  "payrollRunPay": {
+   "route": "POST api/owner/payroll/payroll-runs/{runId}/payments",
+   "query": {},
+   "body": {
+    "paid_at": "2026-09-14",
+    "payment_reference": "TRX-55"
+   }
+  },
+  "payrollRuns": {
+   "route": "GET api/owner/payroll/payroll/runs",
+   "query": {},
+   "body": {}
+  },
+  "employees": {
+   "route": "GET api/owner/payroll/payroll/employees",
+   "query": {
+    "status": "active"
+   },
+   "body": {}
+  },
+  "employeeDetails": {
+   "route": "GET api/owner/payroll/payroll/employees/{publicReference}",
+   "query": {},
+   "body": {}
+  },
+  "employeeFormOptions": {
+   "route": "GET api/owner/payroll/payroll/employees/form-options",
+   "query": {},
+   "body": {}
+  },
+  "employeeCreate": {
+   "route": "POST api/owner/payroll/payroll/employees",
+   "query": {},
+   "body": {
+    "name": "سعد القرني",
+    "number": "EMP-015",
+    "title": "طاهٍ",
+    "branch_id": "{{branch.id}}",
+    "join_date": "2026-09-01",
+    "base_salary": 6000,
+    "iban": "SA0380000000608010167519",
+    "is_active": 1
+   }
+  },
+  "employeeUpdate": {
+   "route": "PATCH api/owner/payroll/payroll/employees/{publicReference}",
+   "query": {},
+   "body": {
+    "name": "خالد العتيبي",
+    "number": "EMP-A001",
+    "title": "طاهٍ",
+    "branch_id": "{{branch.id}}",
+    "join_date": "2026-09-01",
+    "base_salary": 6000,
+    "iban": "SA0380000000608010167519",
+    "is_active": 1,
+    "version": 1
+   }
+  },
+  "employeeAction": {
+   "route": "POST api/owner/payroll/payroll/employees/{publicReference}/action",
+   "query": {},
+   "body": {
+    "action": "bonus",
+    "type": "performance",
+    "amount": 500,
+    "reason": "أداء متميز"
+   }
+  },
+  "staticPages": {
+   "route": "GET api/public/pages",
+   "query": {},
+   "body": {}
+  },
+  "staticPageDetails": {
+   "route": "GET api/public/pages/{key}",
+   "query": {},
+   "body": {}
+  },
+  "generalCountries": {
+   "route": "GET api/public/general/countries",
+   "query": {
+    "keyword": "ر"
+   },
+   "body": {}
+  },
+  "generalCities": {
+   "route": "GET api/public/general/cities",
+   "query": {
+    "keyword": "ر"
+   },
+   "body": {}
+  }
+ }
+}
