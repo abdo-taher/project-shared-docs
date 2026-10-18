@@ -46,6 +46,15 @@
    "notes": [
     "Not exercised live. The contract's 200 `data` documents only `financial_summary` and `invoices` arrays with untyped items; the customer fields the app expects cannot be determined from the contract."
    ]
+  },
+  "authLogin": {
+   "status": "MAPPED_VERIFIED_LIVE",
+   "operationId": "auth.login",
+   "notes": [
+    "201 with `{login, password, device_name}`: `data` is the owner user object including `token` (observed live; contract alternative #2).",
+    "A phone-based request (`phone, phone_code, password, device_token, type` — what the app sends) without `login`/`device_name` was answered 422 `credentials do not match` for the seeded owner (who has no phone), i.e. it reached the credential check: the contract's `required: [login, password, device_name]` is stricter than the backend. A successful phone login was NOT observed.",
+    "User object: `phone` string|null, `has_subscription` boolean (contract corrected in this publication)."
+   ]
   }
  }
 }

@@ -255,7 +255,9 @@ class CapitalixContractToolTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         rows = {r["name"]: r for r in json.loads(result.stdout)["results"]}
         self.assertEqual(rows["customerCreate"]["status"], "MAPPED_BY_BACKEND_BINDING")
-        self.assertIn("phone", rows["customerCreate"]["notes"][0])
+        notes = " ".join(rows["customerCreate"]["notes"])
+        self.assertIn("phone", notes)
+        self.assertIn("does not send: type", notes, "required `type` is not sent by the binding")
         self.assertEqual(rows["ghost"]["status"], "BOUND_BUT_NOT_IN_CONTRACT")
         self.assertEqual(rows["unbound"]["status"], "NOT_BOUND_BY_BACKEND")
         self.assertEqual(rows["reviewed"]["status"], "MAPPED_VERIFIED_LIVE")

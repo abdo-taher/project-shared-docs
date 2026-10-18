@@ -1,0 +1,11 @@
+{
+  "schema": "capitalix-contract-lock/1",
+  "source": "github:abdo-taher/project-shared-docs",
+  "version": "2026.10.18-06d388692794",
+  "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c",
+  "manifest_sha256": "48fab1a18dfe8cae49fbf2c869a43b7787fd67620dabef2eb99c19b914bc34dc",
+  "source_repository": "alalmiyalhura/capitalix",
+  "source_commit": "2429b7d2b41d7c6e0849b5645ea06d4463751d86",
+  "operations": 1028,
+  "tool_version": "1.0.0"
+}
