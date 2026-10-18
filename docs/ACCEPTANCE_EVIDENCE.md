@@ -21,7 +21,7 @@ Recorded 2026-10-19. Each criterion lists the evidence it rests on. Statuses:
 |---|---|---|---|
 | 1 | Source-of-truth and promotion documented | VERIFIED | GitLab `docs/api-contract/BACKEND_PUBLISHING_GUIDE.md`; dev clone tracks GitLab `main` as `refs/prod/main` |
 | 2 | v4 pipeline verified in real CI | VERIFIED | MR !6 pipeline 2960957859 all green (image, validation 97 s, phpunit 65 s, drift, approval check); main 2960973893 all green incl. approval + publish |
-| 3 | Security-critical settings verified | VERIFIED (one owner action open) | API read-back: `SHARED_DOCS_TOKEN` protected+masked, scope `shared-api-docs`; approval key/approver protected, scope `openapi-contract-approval`; `only_allow_merge_if_pipeline_succeeds=true`; pipeline variables need Maintainer. Token's own GitHub scope NOT verifiable (see limitations) |
+| 3 | Security-critical settings verified | VERIFIED | API read-back: publication credential is `SHARED_DOCS_DEPLOY_KEY`, an SSH deploy key (GitHub id 166881222) that can write to this repository only, protected+masked, scope `shared-api-docs`, GitHub host key pinned; the account-wide `SHARED_DOCS_TOKEN` was deleted from GitLab; approval key/approver protected, scope `openapi-contract-approval`; `only_allow_merge_if_pipeline_succeeds=true`; pipeline variables need Maintainer |
 | 4 | Deterministic, environment-independent generation | VERIFIED | CI candidate sha256 = local sha256 = `06d38869…` (MR jobs 17269022598, 17269041645); determinism gate true; root causes fixed: APP_NAME/SESSION_COOKIE leak from `.env`, missing bcmath/intl |
 | 5 | Compatibility and quality gates pass | VERIFIED | initial publication: 0 changes vs. itself; quality 861/39, 0 regressions (ratchet tightened 875→873→861, no fingerprint increased) |
 | 6 | Negative cases fail closed | VERIFIED | real CI: MR pipelines 2960917817 / 2960920633 failed `openapi_contract_approval_check` with "approval file … is missing"; 2960917817 failed `api_contract_drift` on undocumented API change. Unit tests (93 CI-script tests): invalid/stale/nondeterministic/uncovered, breaking, unknown, quality regression, absent approval, other-digest approval, replayed/edited signature, initial-mode reuse after history, shallow history, unapproved bytes, stale publication, rollback, version rewrite |
@@ -37,7 +37,7 @@ Recorded 2026-10-19. Each criterion lists the evidence it rests on. Statuses:
 | 16 | Developer documentation | VERIFIED | `docs/` (overview, quickstart, agent instructions, versioning, this file); backend guide in GitLab |
 | 17 | Reproducible publication and update | VERIFIED (publication); IMPLEMENTED, NOT VERIFIED (a second, changed version) | first version published by CI; `update` covered by tests only — no second contract version exists yet |
 | 18 | End-to-end evidence recorded | VERIFIED | this file |
-| 19 | Unchanged-contract follow-up and scoped token in real CI | see follow-up below | GitLab MR !7 |
+| 19 | Unchanged approved contract and scoped credential in real CI | VERIFIED | main pipeline 2961016622: approval job 17269620821 "unchanged since approval"; publish job 17269620824 cloned over SSH with the deploy key, `NO_CONTRACT_CHANGES`, re-verification OK |
 
 ## Real-backend verification
 
@@ -59,9 +59,10 @@ alternative (login), unsatisfiable `data: null` (deletes), nullable
 - **Flutter app repository not accessible** (not found in any account
   available to this work). The integration was proven with a Dart reference
   consumer instead; connecting the real app is open.
-- **`SHARED_DOCS_TOKEN` scope**: it is a fine-grained/app token; GitHub reports
-  the user's permissions (admin), not the token's. Replace it with a token
-  limited to this repository's contents (owner action).
+- **The former account-wide GitHub token** is no longer used by GitLab and was
+  deleted there; revoking it in GitHub is an owner action, after checking
+  whether the GitHub `capitalix` "Publish Shared Documentation" workflow uses
+  the same token as its own `SHARED_DOCS_TOKEN` secret.
 - **Consumers cannot verify the owner's signature** (HMAC, symmetric). They
   verify digests and provenance; the signature is verified by the protected
   GitLab job.
@@ -71,12 +72,20 @@ alternative (login), unsatisfiable `data: null` (deletes), nullable
   are reported, not fixed.
 - **Shared-docs `main` cannot be branch-protected** on the current GitHub plan;
   integrity rests on immutable versions + digests in consumer locks.
-- **Development repository**: the generator fix is proposed as
-  abdo-taher/capitalix#4 and not merged; a promotion without it would be
-  caught by the consistency gate, not silently published.
+- **Development repository**: the generator fix was merged into
+  `integration/E01-FOUNDATION-SAAS` as `287b2cc8` (abdo-taher/capitalix#4)
+  after generating development's contract with it (872 paths, list envelope
+  documented). Development has no automated test run for it; promotion to
+  production is still gated by the consistency and compatibility checks.
 - The GitLab `AGENTS.md` (synced from development) still references
   documents that only exist in the development repository.
 
-## Follow-up verification (MR !7)
+## Follow-up verification
 
-Recorded below when MR !7 and its `main` pipeline complete.
+| Run | Result |
+|---|---|
+| MR !7 pipeline 2960981784 | green with no new approval: approval check "unchanged since approval" |
+| MR !7 merge | GitLab wrote merge commit `e885843` but reported "An error occurred while merging"; the MR was closed with a note, its change ran in the next main pipeline |
+| MR !8 (deploy key) pipeline 2961009281 | green |
+| main pipeline 2961016622 (`ffff625d`) | all green: signature verified for the unchanged contract; publish via deploy key; no-op; published copy re-verified |
+| Deploy key write access | `git push --dry-run` authorised before use (no ref created) |
