@@ -1,0 +1,16 @@
+name: capitalix_owner_customers_example
+description: >-
+  Reference consumer of the approved Capitalix API contract: the Owner app
+  Customers feature (list, create, update, delete), implemented against the
+  pinned contract in .capitalix-contract/.
+publish_to: none
+version: 1.0.0
+
+environment:
+  sdk: ">=3.4.0 <4.0.0"
+
+dependencies:
+  http: ^1.2.2
+
+dev_dependencies:
+  test: ^1.25.8

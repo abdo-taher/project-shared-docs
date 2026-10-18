@@ -1,0 +1,16 @@
+{
+ "message": "string",
+ "data": {
+  "id": "string",
+  "name": "string",
+  "type": "string",
+  "status": "string",
+  "mobile": "string",
+  "email": "string",
+  "tax_number": "string",
+  "commercial_registration_no": "string",
+  "national_address": "string",
+  "created_at": "string",
+  "updated_at": "string"
+ }
+}

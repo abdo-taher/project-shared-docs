@@ -1,0 +1,51 @@
+{
+ "schema": "capitalix-requirements-map/1",
+ "requirements_file": "api/BACKEND_API.md",
+ "note": "Reviewed mappings; highest precedence in the gap report. MAPPED_VERIFIED_LIVE entries were exercised by examples/dart-owner-customers against a running Capitalix backend built from the published source revision, and every recorded exchange was validated against the pinned contract (see docs/ACCEPTANCE_EVIDENCE.md). Only claims that were observed are recorded.",
+ "requirements": {
+  "customers": {
+   "status": "MAPPED_VERIFIED_LIVE",
+   "operationId": "owner.sales.customer-balances",
+   "notes": [
+    "No plain `GET customers` list exists; the paginated customer list is customer-balances.",
+    "Response is `data: {items: [...], meta: {current_page, last_page, total}}` (observed live).",
+    "Supported filters: name, mobile, payment_status, has_debt, page, per_page (1..100). The app's `search`, `status` and `type` filters are not in the contract.",
+    "No `summary` block (total/active/inactive/business/individual/total_due) is documented.",
+    "Rows are balances (customer_reference, name, mobile|null, invoice_count, paid_amount, remaining_amount, payment_status|null, has_debt, has_overdue), not the app's customer object; amounts are decimal strings, not numbers."
+   ]
+  },
+  "customerCreate": {
+   "status": "MAPPED_VERIFIED_LIVE",
+   "operationId": "owner.sales.customers.store",
+   "notes": [
+    "Contract field names: mobile (app: phone), tax_number (app: vat_number), commercial_registration_no (app: commercial_register); no is_active on create.",
+    "`type` is INDIVIDUAL | ORGANIZATION (app: individual | business).",
+    "The backend rejected an ORGANIZATION without tax_number (422, observed live); the contract marks tax_number optional — a conditional rule the contract does not express.",
+    "409 = likely duplicate; resend with confirm_distinct=true to proceed.",
+    "Response `type`/`status` are plain strings in the contract (observed: ORGANIZATION, ACTIVE).",
+    "The backend conformance bindings send the app's field names (phone, vat_number, …); whether those are accepted is undocumented and was NOT verified here."
+   ]
+  },
+  "customerUpdate": {
+   "status": "MAPPED_VERIFIED_LIVE",
+   "operationId": "owner.sales.customers.update",
+   "notes": [
+    "Method is PUT (the app spec suggested POST). Full update: same fields and rules as create."
+   ]
+  },
+  "customerDelete": {
+   "status": "MAPPED_VERIFIED_LIVE",
+   "operationId": "owner.sales.customers.destroy",
+   "notes": [
+    "200 with `data: {}` (observed live)."
+   ]
+  },
+  "customerDetails": {
+   "status": "MAPPED_REVIEWED",
+   "operationId": "owner.sales.customers.show",
+   "notes": [
+    "Not exercised live. The contract's 200 `data` documents only `financial_summary` and `invoices` arrays with untyped items; the customer fields the app expects cannot be determined from the contract."
+   ]
+  }
+ }
+}

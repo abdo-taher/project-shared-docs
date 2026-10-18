@@ -34,7 +34,9 @@ Verify documentation against actual backend behavior.
 Commit and push validated documentation changes.
 
 ## Cycle 6: Consumer Sync
-Flutter and Frontend agents fetch latest documentation.
+Flutter and Frontend projects pin an approved contract version and update the
+pin deliberately (`tools/capitalix_contract.py status` / `update`); see
+docs/DEVELOPER_QUICKSTART.md. Agents never switch to "latest" during feature work.
 
 ## Cycle 7: Impact Analysis
 Compare current documentation revision with

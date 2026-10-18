@@ -1,0 +1,53 @@
+# AI agent instructions — Capitalix API contract
+
+Copy this section into the consumer project's `AGENTS.md` / `CLAUDE.md`.
+
+## Capitalix API contract (mandatory for any API-dependent task)
+
+The backend API is defined ONLY by the pinned contract in
+`.capitalix-contract/` (`openapi.json`, `manifest.json`, `contract.lock`).
+The tool is `tool/capitalix_contract.py` (Python 3, no packages).
+
+Before writing API code:
+
+1. `python3 tool/capitalix_contract.py verify` — stop if it fails.
+2. `python3 tool/capitalix_contract.py inspect <feature words> [--method M]`
+   — read ONLY the operations you need. Do not load the whole `openapi.json`
+   into context.
+3. Note the contract `version` from the output; cite it in your summary/PR.
+
+While implementing:
+
+- Use the exact method and canonical path from `inspect`
+  (`/api/owner|accountant|admin|auth|public/...`; never `/api/v1/*` aliases).
+- Use the exact parameter and field names, enums, required fields, auth
+  (`security`) and permission (`access`) from the schema.
+- Responses: `{message, data}`; lists are `data.items` + `data.meta`
+  (`current_page`, `last_page`, `total`); errors are
+  `{message, errors{field:[...]}, code, correlation_id, details}` with
+  401/403/404/409/422 as documented per operation.
+- Reuse the project's existing HTTP client, models and error conventions.
+- Build test fixtures with `sample <operationId> --status <code>`; never hand-write
+  response shapes.
+- Never invent an endpoint, parameter, field or enum value. If `inspect` finds
+  nothing, or the contract cannot express what the task needs, STOP that part
+  and report: what is missing, which requirement needs it, contract version.
+- `api/BACKEND_API.md`-style requirement documents are wishes, not the API.
+  Where they disagree with the contract, follow the contract and report the
+  difference.
+
+Before finishing:
+
+1. `python3 tool/capitalix_contract.py check <source dir>` — no `NOT IN CONTRACT`.
+2. Run the project's tests; if they record HTTP traffic, run
+   `python3 tool/capitalix_contract.py validate <traffic.json>`.
+3. Report the contract version used and any missing/mismatched operations.
+
+Never during ordinary feature work:
+
+- edit anything in `.capitalix-contract/`;
+- run `update` or `init --force` (moving the pin is a separate, explicit task);
+- fetch the "latest" contract from the network instead of the pin.
+
+`python3 tool/capitalix_contract.py status` may be run to report whether a
+newer approved version exists; report it, do not apply it.
