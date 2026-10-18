@@ -1,0 +1,21 @@
+{
+  "decision": "APPROVED",
+  "approved_artifact": "docs/api/openapi.json",
+  "approved_artifact_sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c",
+  "baseline_artifact_sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c",
+  "compatibility_digest": "83f40336f71cd3fdece1f1be4448a6a3408099021a781cd652f4c1cb5ba98266",
+  "compatibility_summary": {
+    "BREAKING": 0,
+    "UNKNOWN": 0
+  },
+  "approved_scope": [],
+  "allow_breaking": false,
+  "allow_unknown": false,
+  "initial_publication": true,
+  "approved_by": "Abdulrahman Taher <abdotaher2025@gmail.com>",
+  "trusted_approval_id": "MR-!6@job-17269041645",
+  "approved_at": "2026-10-18T22:13:15.426010+00:00",
+  "source_commit": "d7a9be40d96ea6be30063f33f8d73790ed4ef534",
+  "note": "Pins the exact OpenAPI artifact bytes approved for publication to abdo-taher/project-shared-docs api/implemented/openapi.json. Generated with: scripts/ci/openapi_contract_approval.py draft",
+  "trusted_approval_signature": "c5ed260b2109b99a8181a5c58ad4547c547b415771b3b6ff50b78becb9d9815c"
+}

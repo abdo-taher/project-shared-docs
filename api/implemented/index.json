@@ -1,0 +1,20 @@
+{
+  "schema": "capitalix-contract-index/1",
+  "versions": [
+    {
+      "version": "2026.10.18-06d388692794",
+      "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c",
+      "source_commit": "2429b7d2b41d7c6e0849b5645ea06d4463751d86",
+      "source_commit_date": "2026-10-18T22:22:51Z",
+      "initial_publication": true,
+      "compatibility": {
+        "BREAKING": 0,
+        "UNKNOWN": 0,
+        "NON_BREAKING": 0,
+        "DOCUMENTATION_ONLY": 0,
+        "total": 0
+      },
+      "manifest": "versions/2026.10.18-06d388692794/manifest.json"
+    }
+  ]
+}
