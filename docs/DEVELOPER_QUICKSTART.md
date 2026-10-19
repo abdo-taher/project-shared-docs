@@ -1,25 +1,36 @@
 # Developer quickstart — use the Capitalix API contract
 
-For frontend/mobile developers (React, Flutter, …). Ten minutes, no backend
-checkout needed.
+For frontend/mobile developers (Flutter, React, Next.js, Vue, Angular, …).
+Ten minutes, no backend checkout needed.
 
 ## Prerequisites
 
-- Python 3.9+ (no packages).
-- Read access to `abdo-taher/project-shared-docs`: either `gh auth login`, or
-  a `GITHUB_TOKEN` that can read the repository.
+- Python 3.9+ (standard library only — nothing to install).
+- `curl` (or any way to download one file).
+- **No GitHub account, token or `gh` login**: `abdo-taher/project-shared-docs`
+  is public, and the tool reads it anonymously over HTTPS.
+
+Private mirror instead of the public repository? Then the tool needs read
+access: set `GITHUB_TOKEN` (or `GH_TOKEN`), or log in with `gh auth login`.
+The tool tries anonymous access first and uses a logged-in `gh` only when
+anonymous access cannot see the file.
 
 ## 1. Connect your project (once)
 
 ```sh
 mkdir -p tool
-gh api -H "Accept: application/vnd.github.raw+json" \
-  repos/abdo-taher/project-shared-docs/contents/tools/capitalix_contract.py > tool/capitalix_contract.py
+curl -fsSL -o tool/capitalix_contract.py \
+  https://raw.githubusercontent.com/abdo-taher/project-shared-docs/main/tools/capitalix_contract.py
 python3 tool/capitalix_contract.py init
 ```
 
-`init` downloads the **current approved** version, checks its sha256 against
-the published manifest, and writes `.capitalix-contract/`:
+Read `tool/capitalix_contract.py` before you commit it — it is a single,
+dependency-free file. It never executes anything it downloads.
+
+`init` downloads the **current approved** version and refuses to pin it unless
+the contract's sha256 matches the published pointer and manifest, and the
+approval evidence (`approval.json`) matches the manifest and approves exactly
+these bytes. It writes `.capitalix-contract/`:
 
 | File | Meaning |
 |---|---|
@@ -48,6 +59,25 @@ python3 tool/capitalix_contract.py check lib/        # every API path in code ex
 `inspect` prints only the matching operations, with parameters, request body,
 responses, auth (`security`) and permission (`access`) fully resolved — about
 15 KB for a feature instead of the whole 6 MB contract.
+
+## Framework setup
+
+The workflow is identical everywhere; only the source directory you `check`
+differs. Commit `tool/` and `.capitalix-contract/` at the repository root.
+
+| Stack | API code usually lives in | Check command |
+|---|---|---|
+| Flutter / Dart | `lib/` | `python3 tool/capitalix_contract.py check lib/` |
+| React (Vite, CRA) | `src/` | `python3 tool/capitalix_contract.py check src/` |
+| Next.js | `app/`, `src/`, `pages/` (those that exist) | `python3 tool/capitalix_contract.py check app/ src/` |
+| Vue | `src/` (`.vue` files are not scanned by default) | `python3 tool/capitalix_contract.py check src/ --ext .vue,.ts,.js` |
+| Angular | `src/app/` | `python3 tool/capitalix_contract.py check src/app/ --ext .ts` |
+
+`check` looks for API path literals that start with `api/` or `/api/`. If your
+client builds paths from a base such as `/api/owner` plus a relative path
+(`'sales/customers'`), add `--prefix /api/owner` so relative literals are
+checked too. Put endpoint paths in one constants file per feature (see
+`examples/dart-owner-customers/lib/src/endpoints.dart`) so `check` sees them.
 
 ## 3. Implement a feature (the workflow)
 
@@ -90,11 +120,55 @@ python3 tool/capitalix_contract.py gap path/to/requirements.md --out gap.md
 
 The owner-app report is in `api/requirements/GAP_REPORT.md`.
 
+## Consumer CI (no secrets needed)
+
+Run the same checks in CI. They fail on any integrity error and never move the
+pin. Commit the tool so CI does not download code on every run.
+
+GitHub Actions:
+
+```yaml
+contract:
+  runs-on: ubuntu-latest
+  steps:
+    - uses: actions/checkout@v4
+    - run: python3 tool/capitalix_contract.py sync            # only if openapi.json is gitignored
+    - run: python3 tool/capitalix_contract.py verify --remote # pin == published, approval evidence intact
+    - run: python3 tool/capitalix_contract.py check lib/      # your source directory
+    - run: python3 tool/capitalix_contract.py status          # reports newer versions; never updates
+```
+
+GitLab CI:
+
+```yaml
+contract:
+  image: python:3.12-alpine
+  script:
+    - python3 tool/capitalix_contract.py sync
+    - python3 tool/capitalix_contract.py verify --remote
+    - python3 tool/capitalix_contract.py check src/
+```
+
+Add `status --fail-if-outdated` only if you want CI to fail when a newer approved
+version exists. Updating the pin stays a deliberate commit (`update`).
+
+To refresh the committed tool itself, download it from a specific commit and
+review the diff before committing:
+
+```sh
+curl -fsSL -o tool/capitalix_contract.py \
+  https://raw.githubusercontent.com/abdo-taher/project-shared-docs/<commit-sha>/tools/capitalix_contract.py
+git diff tool/capitalix_contract.py
+```
+
 ## Troubleshooting
 
 | Message | Meaning / fix |
 |---|---|
-| `SOURCE UNREACHABLE` | no network or no read access; your pinned copy still works offline |
+| `SOURCE UNREACHABLE … timed out` / `rate limited` | network problem or GitHub throttling (the tool already retried); your pinned copy still works offline — retry later |
+| `SOURCE UNREACHABLE … not found` | wrong `--version`, or a private repository: set `GITHUB_TOKEN` or run `gh auth login` |
+| `HTTP 401 — the token … was rejected` | an invalid `GITHUB_TOKEN`/`GH_TOKEN` is set; unset it to use anonymous access to the public repository |
+| `approval evidence does not match` / `does not approve this exact contract` | the published files are inconsistent or tampered with; do not use them, report it |
 | `openapi.json does not match the digest in contract.lock` | the pinned file was edited or corrupted — `sync` restores it |
 | `downloaded contract digest … does not match` | a published file was tampered with or truncated; do not use it, report it |
 | `no operation matches` | the operation is not in the contract; don't fabricate it |

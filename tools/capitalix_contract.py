@@ -21,8 +21,14 @@ Pinned files live in .capitalix-contract/ (override with --dir):
   contract.lock  what is pinned, and the digests that must match
 
 Sources:
-  github:OWNER/REPO[@REF]  GitHub contents API; uses $GITHUB_TOKEN, else the `gh` CLI login
+  github:OWNER/REPO[@REF]  public repository: anonymous HTTPS (no account, token or gh needed);
+                           private repository: $GITHUB_TOKEN / $GH_TOKEN, else a logged-in `gh`
   file:/path/to/checkout   a local shared-docs checkout (offline / mirrors / tests)
+
+Every download is verified the same way, whatever the transport: the contract's
+sha256 must match the published pointer/index and manifest, and the approval
+evidence (approval.json) must hash to the digest recorded in the manifest and
+approve exactly these bytes. Nothing downloaded is ever executed.
 
 Exit codes: 0 ok; 1 check failed (digest mismatch, unknown paths, outdated with
 --fail-if-outdated); 2 source unreachable; 3 usage or input error.
@@ -36,8 +42,10 @@ import json
 import os
 import re
 import shutil
+import socket
 import subprocess
 import sys
+import time
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -47,6 +55,11 @@ TOOL_VERSION = "1.0.0"
 DEFAULT_SOURCE = "github:abdo-taher/project-shared-docs"
 DEFAULT_DIR = ".capitalix-contract"
 PUBLISHED_ROOT = "api/implemented"
+RAW_BASE = "https://raw.githubusercontent.com"
+API_BASE = "https://api.github.com"
+HTTP_TIMEOUT = 60
+HTTP_ATTEMPTS = 3
+MAX_RETRY_WAIT = 30
 METHODS = ("get", "post", "put", "patch", "delete", "head", "options")
 
 
@@ -60,8 +73,72 @@ class CheckFailed(Exception):
 
 # --------------------------------------------------------------------------- sources
 
+class HttpStatusError(SourceError):
+    """A non-retryable HTTP status from the source."""
+
+    def __init__(self, code: int, message: str):
+        super().__init__(message)
+        self.code = code
+
+
+def _retry_wait(exc: urllib.error.HTTPError, attempt: int) -> float:
+    header = exc.headers.get("Retry-After") if exc.headers else None
+    try:
+        wait = float(header) if header is not None else 2.0 ** attempt
+    except ValueError:
+        wait = 2.0 ** attempt
+    return min(max(wait, 0.0), MAX_RETRY_WAIT)
+
+
+def _rate_limited(exc: urllib.error.HTTPError) -> bool:
+    if exc.code == 429:
+        return True
+    return exc.code == 403 and bool(exc.headers) and exc.headers.get("X-RateLimit-Remaining") == "0"
+
+
+def http_get(url: str, headers: dict, label: str) -> bytes:
+    """GET over HTTPS (TLS verified by default). Retries rate limits, 5xx and timeouts."""
+    for attempt in range(HTTP_ATTEMPTS):
+        last = attempt == HTTP_ATTEMPTS - 1
+        try:
+            request = urllib.request.Request(url, headers=headers)
+            with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT) as response:
+                return response.read()
+        except urllib.error.HTTPError as exc:
+            if _rate_limited(exc) or exc.code >= 500:
+                if not last:
+                    time.sleep(_retry_wait(exc, attempt))
+                    continue
+                kind = "rate limited" if _rate_limited(exc) else "temporarily unavailable"
+                raise SourceError(f"{label}: GitHub {kind} (HTTP {exc.code}) after "
+                                  f"{HTTP_ATTEMPTS} attempts — retry later") from None
+            raise HttpStatusError(exc.code, f"{label}: HTTP {exc.code}") from None
+        except (socket.timeout, TimeoutError) as exc:
+            if not last:
+                continue
+            raise SourceError(f"{label}: timed out after {HTTP_ATTEMPTS} attempts "
+                              f"({HTTP_TIMEOUT}s each)") from exc
+        except urllib.error.URLError as exc:
+            if isinstance(exc.reason, (socket.timeout, TimeoutError)) and not last:
+                continue
+            raise SourceError(f"{label}: cannot reach the source ({exc.reason})") from None
+    raise SourceError(f"{label}: unreachable")
+
+
+def _gh_logged_in() -> bool:
+    if not shutil.which("gh"):
+        return False
+    status = subprocess.run(["gh", "auth", "status"], stdout=subprocess.DEVNULL,
+                            stderr=subprocess.DEVNULL)
+    return status.returncode == 0
+
+
 def fetch(source: str, path: str) -> bytes:
-    """Return the bytes of a published file, relative to the shared-docs root."""
+    """Return the bytes of a published file, relative to the shared-docs root.
+
+    github: sources use, in order: an explicit token (authenticated API); anonymous
+    HTTPS (public repository); a logged-in `gh` (private repository fallback).
+    """
     if source.startswith("file:"):
         target = Path(source[5:]) / path
         try:
@@ -70,32 +147,39 @@ def fetch(source: str, path: str) -> bytes:
             raise SourceError(f"cannot read {target}: {exc}") from exc
     if not source.startswith("github:"):
         raise SourceError(f"unsupported source [{source}] (use github:OWNER/REPO or file:PATH)")
-    spec = source[7:]
-    repo, _, ref = spec.partition("@")
+    repo, _, ref = source[7:].partition("@")
+    if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repo):
+        raise SourceError(f"invalid repository in source [{source}]")
+    agent = {"User-Agent": f"capitalix-contract/{TOOL_VERSION}"}
     api_path = f"repos/{repo}/contents/{path}" + (f"?ref={ref}" if ref else "")
+
     token = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
     if token:
-        request = urllib.request.Request(
-            f"https://api.github.com/{api_path}",
-            headers={"Accept": "application/vnd.github.raw+json",
-                     "Authorization": f"Bearer {token}",
-                     "User-Agent": f"capitalix-contract/{TOOL_VERSION}"})
         try:
-            with urllib.request.urlopen(request, timeout=60) as response:
-                return response.read()
-        except urllib.error.HTTPError as exc:
-            raise SourceError(f"GitHub returned HTTP {exc.code} for {path} "
-                              "(check that the token can read the repository)") from exc
-        except urllib.error.URLError as exc:
-            raise SourceError(f"cannot reach GitHub: {exc.reason}") from exc
-    if shutil.which("gh"):
+            return http_get(f"{API_BASE}/{api_path}",
+                            {**agent, "Accept": "application/vnd.github.raw+json",
+                             "Authorization": f"Bearer {token}"}, path)
+        except HttpStatusError as exc:
+            hint = {401: "the token in GITHUB_TOKEN/GH_TOKEN was rejected",
+                    403: "the token cannot read this repository",
+                    404: "not found, or the token cannot see the repository"}.get(exc.code, "")
+            raise SourceError(f"{path}: HTTP {exc.code}" + (f" — {hint}" if hint else "")) from None
+
+    try:
+        return http_get(f"{RAW_BASE}/{repo}/{ref or 'HEAD'}/{path}", agent, path)
+    except HttpStatusError as exc:
+        if exc.code != 404:
+            raise SourceError(f"{path}: HTTP {exc.code} from anonymous access") from None
+    # 404 anonymously: the file is missing, or the repository is private.
+    if _gh_logged_in():
         result = subprocess.run(
             ["gh", "api", "-H", "Accept: application/vnd.github.raw+json", api_path],
             stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         if result.returncode == 0:
             return result.stdout
-        raise SourceError(f"gh api failed for {path}: {result.stderr.decode().strip()}")
-    raise SourceError("no GitHub credentials: set GITHUB_TOKEN or run `gh auth login`")
+        raise SourceError(f"{path}: not found (anonymous and gh access)")
+    raise SourceError(f"{path}: not found — check the version/path; if the repository is "
+                      "private, set GITHUB_TOKEN or run `gh auth login`")
 
 
 def fetch_json(source: str, path: str) -> dict:
@@ -121,16 +205,43 @@ def resolve_version(source: str, version: str) -> tuple[dict, bytes, bytes]:
         if entry is None:
             raise CheckFailed(f"version [{version}] is not published")
         expected = entry["sha256"]
-    manifest_bytes = fetch(source, f"{PUBLISHED_ROOT}/versions/{version}/manifest.json")
-    manifest = json.loads(manifest_bytes)
-    contract = fetch(source, f"{PUBLISHED_ROOT}/versions/{version}/openapi.json")
-    digest = sha256(contract)
-    if manifest.get("version") != version or manifest.get("sha256") != expected:
+    base = f"{PUBLISHED_ROOT}/versions/{version}"
+    manifest_bytes = fetch(source, f"{base}/manifest.json")
+    try:
+        manifest = json.loads(manifest_bytes)
+    except json.JSONDecodeError as exc:
+        raise CheckFailed(f"manifest for {version} is not valid JSON: {exc}") from None
+    if not isinstance(manifest, dict) or manifest.get("version") != version \
+            or manifest.get("sha256") != expected:
         raise CheckFailed(f"manifest for {version} does not match the published index/pointer")
+    if not (manifest.get("source") or {}).get("repository") or not (manifest.get("source") or {}).get("commit"):
+        raise CheckFailed(f"manifest for {version} does not name its source repository and commit")
+    contract = fetch(source, f"{base}/openapi.json")
+    digest = sha256(contract)
     if digest != expected:
         raise CheckFailed(f"downloaded contract digest {digest} does not match the "
                           f"published digest {expected} for {version}")
+    verify_approval_evidence(manifest, fetch(source, f"{base}/approval.json"), digest)
     return manifest, manifest_bytes, contract
+
+
+def verify_approval_evidence(manifest: dict, approval_bytes: bytes, digest: str) -> None:
+    """The approval manifest must be the one the publisher recorded, approving these bytes.
+
+    The owner's HMAC signature itself is verified by the protected GitLab job; a
+    consumer verifies that the published approval evidence is intact and consistent.
+    """
+    recorded = (manifest.get("approval") or {}).get("approval_manifest_sha256")
+    if not recorded or sha256(approval_bytes) != recorded \
+            or (manifest.get("files") or {}).get("approval.json") != recorded:
+        raise CheckFailed("approval evidence does not match the digest recorded in the manifest")
+    try:
+        approval = json.loads(approval_bytes)
+    except json.JSONDecodeError:
+        raise CheckFailed("approval evidence is not valid JSON") from None
+    if approval.get("decision") != "APPROVED" or approval.get("approved_artifact_sha256") != digest \
+            or not approval.get("trusted_approval_signature"):
+        raise CheckFailed("approval evidence does not approve this exact contract")
 
 
 # --------------------------------------------------------------------------- pin files
@@ -292,6 +403,9 @@ def cmd_verify(args) -> int:
         manifest, _, _ = resolve_version(lock["source"], lock["version"])
         if manifest["sha256"] != lock["sha256"]:
             raise CheckFailed("the published manifest for the pinned version has a different digest")
+        if (manifest["source"]["repository"], manifest["source"]["commit"]) != \
+                (lock.get("source_repository"), lock.get("source_commit")):
+            raise CheckFailed("the published manifest names a different source than contract.lock")
         print(f"published manifest OK: {manifest['version']} from "
               f"{manifest['source']['repository']}@{manifest['source']['commit']}, "
               f"approved by {manifest['approval']['approved_by']} "

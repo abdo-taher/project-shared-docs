@@ -22,6 +22,19 @@ jobs:
         with:
           python-version: "3.12"
       - run: python3 -m unittest discover -s tools/tests -p "test_*.py" -v
+      - name: Credential-free consumer setup against the live public repository
+        run: |
+          set -eu
+          work="$(mktemp -d)"
+          mkdir -p "$work/tool"
+          cp tools/capitalix_contract.py "$work/tool/"
+          cd "$work"
+          # No GITHUB_TOKEN/GH_TOKEN and a fresh HOME (no gh login): the
+          # documented public path must work.
+          env -i PATH=/usr/bin:/bin HOME="$work" python3 tool/capitalix_contract.py init
+          env -i PATH=/usr/bin:/bin HOME="$work" python3 tool/capitalix_contract.py status
+          env -i PATH=/usr/bin:/bin HOME="$work" python3 tool/capitalix_contract.py verify --remote
+          env -i PATH=/usr/bin:/bin HOME="$work" python3 tool/capitalix_contract.py inspect customers --method POST owner > /dev/null
 
   reference-consumer:
     runs-on: ubuntu-latest
@@ -31,10 +44,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dart-lang/setup-dart@v1
-      - name: Restore and verify the pinned contract
+      - name: Restore and verify the pinned contract (anonymous, no token)
         id: pin
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           if [ ! -f .capitalix-contract/contract.lock ]; then
             echo "pinned=false" >> "$GITHUB_OUTPUT"
