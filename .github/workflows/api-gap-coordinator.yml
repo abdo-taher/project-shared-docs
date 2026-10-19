@@ -63,11 +63,14 @@ jobs:
         env:
           API_GAP_GITHUB_TOKEN: ${{ steps.intake.outputs.token }}
           API_GAP_BACKEND_TOKEN: ${{ steps.backend.outputs.token }}
+          API_GAP_APP_LOGIN: ${{ steps.intake.outputs.app-slug }}[bot]
+          API_GAP_AUTOMATION_ENABLED: ${{ vars.API_GAP_AUTOMATION_ENABLED }}
         run: python3 automation/gap/gap_preflight.py
       - name: Synchronize
         env:
           API_GAP_GITHUB_TOKEN: ${{ steps.intake.outputs.token }}
           API_GAP_BACKEND_TOKEN: ${{ steps.backend.outputs.token }}
+          API_GAP_APP_LOGIN: ${{ steps.intake.outputs.app-slug }}[bot]
           INPUT_ISSUES: ${{ inputs.issues }}
           INPUT_DRY_RUN: ${{ inputs.dry_run }}
         run: |

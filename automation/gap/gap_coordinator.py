@@ -156,6 +156,15 @@ class Coordinator:
 
     # ----------------------------------------------------------------- helpers
 
+    def own_logins(self) -> set[str]:
+        """Accounts whose state comments are trusted as the coordinator's own: the configured login (operator runs)
+        and, in Actions, the GitHub App's bot account (API_GAP_APP_LOGIN, e.g. `<slug>[bot]`)."""
+        logins = {self.policy["coordinator_github_login"]}
+        app = os.environ.get("API_GAP_APP_LOGIN", "").strip()
+        if app.endswith("[bot]"):
+            logins.add(app)
+        return logins
+
     def count(self, key: str, n: int = 1) -> None:
         self.counters[key] = self.counters.get(key, 0) + n
 
@@ -191,7 +200,7 @@ class Coordinator:
         number = issue["number"]
         author = (issue.get("user") or {}).get("login", "")
         intake = Intake(number=number, author=author)
-        own = [c for c in comments if (c.get("user") or {}).get("login") == self.policy["coordinator_github_login"]]
+        own = [c for c in comments if (c.get("user") or {}).get("login") in self.own_logins()]
         for comment in own:
             if marker_json(comment.get("body"), STATE_MARKER) is not None:
                 intake.state_comment = comment
@@ -753,6 +762,14 @@ class Coordinator:
         }
 
 
+def coordinator_logins(policy: dict) -> set[str]:
+    logins = {policy["coordinator_github_login"]}
+    app = os.environ.get("API_GAP_APP_LOGIN", "").strip()
+    if app.endswith("[bot]"):
+        logins.add(app)
+    return logins
+
+
 def parse_resolution(raw: bytes, fingerprint: str, iid: int) -> tuple[dict | None, str | None]:
     try:
         evidence = json.loads(raw)
@@ -835,8 +852,15 @@ def main(argv: list[str] | None = None) -> int:
             print("labels ensured")
             return 0
         if not dry_run:
-            viewer = github.viewer()
-            if viewer != policy["coordinator_github_login"]:
+            if github_token.startswith("ghs_"):
+                # installation tokens cannot call GET /user: the identity is the App's bot account, which must be given
+                viewer = os.environ.get("API_GAP_APP_LOGIN", "").strip()
+                if not viewer.endswith("[bot]"):
+                    print("ERROR: an App installation token needs API_GAP_APP_LOGIN=<app-slug>[bot]", file=sys.stderr)
+                    return 3
+            else:
+                viewer = github.viewer()
+            if viewer not in coordinator_logins(policy):
                 print("ERROR: the GitHub credential does not belong to the configured coordinator login",
                       file=sys.stderr)
                 return 3

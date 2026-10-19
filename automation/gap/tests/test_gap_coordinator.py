@@ -456,6 +456,22 @@ class ReliabilityTests(unittest.TestCase):
         self.assertEqual(report["stale"][0]["issue"], 1)
 
 
+class AppIdentityTests(unittest.TestCase):
+
+    def test_state_comments_of_the_app_bot_are_recognised_but_other_accounts_are_not(self):
+        import os
+        from unittest import mock
+        env = Env(self)
+        env.submit(1)
+        with mock.patch.dict(os.environ, {"API_GAP_APP_LOGIN": "capitalix-api-gap[bot]"}):
+            self.assertEqual(env.coordinator().own_logins(), {COORDINATOR, "capitalix-api-gap[bot]"})
+        with mock.patch.dict(os.environ, {"API_GAP_APP_LOGIN": "mallory"}):   # must look like a bot account
+            self.assertEqual(env.coordinator().own_logins(), {COORDINATOR})
+        with mock.patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("API_GAP_APP_LOGIN", None)
+            self.assertEqual(env.coordinator().own_logins(), {COORDINATOR})
+
+
 class ResolutionTests(unittest.TestCase):
 
     def accepted(self, env: Env) -> str:
