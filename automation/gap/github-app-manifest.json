@@ -1,0 +1,14 @@
+{
+  "name": "capitalix-api-gap",
+  "url": "https://github.com/abdo-taher/project-shared-docs",
+  "redirect_url": "https://github.com/abdo-taher/project-shared-docs",
+  "description": "API gap coordinator: tracking issues and read-only pull request/evidence access. No code write, no merge.",
+  "public": false,
+  "default_events": [],
+  "default_permissions": {
+    "issues": "write",
+    "pull_requests": "read",
+    "contents": "read",
+    "metadata": "read"
+  }
+}

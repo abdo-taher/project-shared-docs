@@ -1,10 +1,12 @@
 """capitalix.api-gap.v1 — the API gap request: validation, sanitization, fingerprint, issue text.
 
-Stdlib only. This file is shared byte-for-byte by the consumer CLI
-(abdo-taher/project-shared-docs: tools/capitalix_gap_core.py) and the backend
-coordinator (alalmiyalhura/capitalix: scripts/gap/gap_core.py). Both test suites
-check the same conformance fixtures (fingerprints and verdicts), so the two
-copies cannot drift silently.
+Stdlib only. This file is shared by the consumer CLI
+(tools/capitalix_gap.py), the GitHub automation (automation/gap/),
+and the backend coordinator
+(alalmiyalhura/capitalix: scripts/gap/gap_core.py).
+
+All implementations must conform to the same fixtures
+(fingerprints and verdicts) so their behavior cannot drift silently.
 
 Everything in a request is untrusted input. Nothing here executes, evaluates or
 interpolates request content: it is parsed as JSON (or as fixed issue-form
