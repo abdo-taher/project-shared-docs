@@ -119,7 +119,7 @@ class WorkerTests(DispatchBase):
         self.gl.add_label_by(1, "gap-owner::approved", 9, username="abdo-taher")
         self.assertEqual(w.poll(), "DISPATCHED")
 
-    def test_gitlab_outage_is_reported_and_the_worker_keeps_running(self):
+    def test_backend_outage_is_reported_and_the_worker_keeps_running(self):
         self.approve()
         w = self.worker()
         w.check_runtime(force=True)
@@ -166,7 +166,7 @@ class WorkerTests(DispatchBase):
 
 
 class WorkerProcessTests(unittest.TestCase):
-    """The real worker process: signals, lock, status file (no network: gitlab is a local stub server)."""
+    """The real worker process: signals, lock, status file (no network: the backend is a local stub server)."""
 
     def test_sigterm_stops_an_idle_worker_cleanly_and_a_second_instance_is_refused(self):
         import tempfile, threading
@@ -193,12 +193,12 @@ class WorkerProcessTests(unittest.TestCase):
                "CAPITALIX_GAP_EXECUTOR_CMD": f"{sys.executable} {runner}",
                "API_GAP_DEV_REMOTE": str(Path(tmp.name) / "none.git")}
         base = [sys.executable, str(HERE.parent / "gap_worker.py"), "--policy", str(policy_path), "--workdir", str(work)]
-        # point the GitLab client at the stub by patching the base URL through a tiny wrapper script
+        # point the backend client at the stub by patching the base URL through a tiny wrapper script
         wrapper = Path(tmp.name) / "run.py"
         wrapper.write_text(f"import sys, runpy\nsys.path.insert(0, {str(HERE.parent)!r})\n"
-                           f"import gap_platforms\n"
-                           f"orig = gap_platforms.GitLab.__init__\n"
-                           f"gap_platforms.GitLab.__init__ = lambda self, project, token, http=None, base='http://127.0.0.1:{server.server_address[1]}': orig(self, project, token, http, base)\n"
+                           f"import gap_github_backend\n"
+                           f"orig = gap_github_backend.GitHubBackend.__init__\n"
+                           f"gap_github_backend.GitHubBackend.__init__ = lambda self, project, token, http=None, base='http://127.0.0.1:{server.server_address[1]}': orig(self, project, token, http, base)\n"
                            f"sys.argv = ['gap_worker.py'] + sys.argv[1:]\n"
                            f"runpy.run_path({str(HERE.parent / 'gap_worker.py')!r}, run_name='__main__')\n")
         cmd = [sys.executable, str(wrapper), "--policy", str(policy_path), "--workdir", str(work), "run",

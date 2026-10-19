@@ -164,7 +164,7 @@ class ExfiltrationTests(DispatchBase):
         self.assertEqual(self.forge.opened, [])
         self.assertNotIn(f"gap/1-{self.fp[:16]}", self.remote_branches(), "nothing reached the remote")
         text = json.dumps(self.gl.notes(1)) + json.dumps(self.gl.issues[1])
-        self.assertNotIn(self.secret, text, "the secret is never echoed into GitLab")
+        self.assertNotIn(self.secret, text, "the secret is never echoed into the backend issue")
         self.assertIn("gap-dispatch::failed", self.gl.issues[1]["labels"])
 
     def test_a_secret_in_code_is_withheld(self):

@@ -11,7 +11,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from gap_http import ApiError, Http  # noqa: E402
-from gap_platforms import GitHub, GitLab  # noqa: E402
+from gap_platforms import GitHub  # noqa: E402
 
 TOKEN = "glpat-SECRET-do-not-leak-0000"
 
@@ -118,7 +118,7 @@ class HttpTests(unittest.TestCase):
         self.script("/list2", (200, {}, [3]))
         self.assertEqual(self.http.paginate("list"), [1, 2, 3])
 
-    def test_gitlab_next_page_pagination(self):
+    def test_x_next_page_pagination(self):
         self.script("/list", (200, {"X-Next-Page": "2"}, [1]), (200, {}, [2]))
         self.assertEqual(self.http.paginate("list"), [1, 2])
 
@@ -128,8 +128,8 @@ class HttpTests(unittest.TestCase):
             self.http.paginate("list")
 
     def test_adapters_send_credentials_only_as_headers(self):
-        self.script("/projects/a%2Fb/issues", (200, {}, []))
-        GitLab("a/b", TOKEN, http=Http(self.base, {}, sleep=self.sleeps.append)).find_by_fingerprint("f" * 64)
+        self.script("/repos/a/b/issues", (200, {}, []))
+        GitHub("a/b", TOKEN, http=Http(self.base, {}, sleep=self.sleeps.append)).open_issues()
         method, path, headers = self.server.seen[-1]
         self.assertNotIn(TOKEN, path)
         self.assertEqual(headers.get("authorization"), f"Bearer {TOKEN}")

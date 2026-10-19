@@ -76,11 +76,15 @@ dedicated revocable token.
 
 ## Canary: `public.general.countries` (CAP-MOB-240, fingerprint `5065b06325c32767`)
 
-- Intake issue: `abdo-taher/project-shared-docs#12`; backend issue: `abdo-taher/capitalix#5`
-  (both created by the real coordinator run; state `ACCEPTED`).
-- Candidate: the agent-produced change from the earlier canary, re-based on the latest development head
-  (`287b2cc80d9e19a06b70f66f3741aed0bfb4ff9c`): PHPDoc on `GeneralLookupController::countries()`, regression test,
-  resolution evidence retargeted to backend issue 5.
-- Revalidated in the sandbox on that head: OpenAPI generated (872 paths), evidence holds on it, PHPUnit
-  8 tests / 57 assertions OK; negative control against the published contract: 3 of 4 checks fail there.
-- Reservation check against the live coordinator + hotfix lane: no conflict (`app/ERP/Capabilities/Content`).
+| Item | Reference | State |
+|---|---|---|
+| intake issue | `abdo-taher/project-shared-docs#12` | open, `gap:in-progress` (set by the real coordinator) |
+| backend issue | `abdo-taher/capitalix#5` | open, `gap::in-progress` |
+| fix branch | `gap/5-5065b06325c32767` (commit `d76a26f`, base `287b2cc8`) | pushed |
+| pull request | `abdo-taher/capitalix#6` (**Draft**, "Closes #5") | open, not merged |
+| publication | published contract `2026.10.18-06d388692794` | does **not** contain the fix (3 of 4 checks fail on it) |
+
+Provenance: the change was written by the real agent in an earlier sandboxed run and re-applied on the current
+development head; it was **not** produced by a fresh dispatch, because dispatch needs `gap-dispatch::approved` from a
+repository writer and that approval has not been given. Revalidation on `287b2cc8` in the sandbox: OpenAPI generated
+(872 paths), evidence holds, PHPUnit 8 tests / 57 assertions OK; no conflict with live coordinator/hotfix reservations.

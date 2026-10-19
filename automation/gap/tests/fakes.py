@@ -1,4 +1,4 @@
-"""Isolated fixtures: in-memory GitHub/GitLab and a published shared-docs layout on disk."""
+"""Isolated fixtures: in-memory GitHub intake/backend and a published shared-docs layout on disk."""
 
 from __future__ import annotations
 

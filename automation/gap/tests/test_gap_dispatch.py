@@ -196,9 +196,9 @@ class DispatchTests(DispatchBase):
         self.assertNotIn("gap::accepted", self.gl.issues[1]["labels"])
         statuses = [json.loads(n["body"].split(" ", 2)[2].split(" -->")[0])["status"] for n in self.gl.notes(1)]
         self.assertEqual(statuses, ["STARTED", "REVIEW_OPENED"])
-        self.assertIn("https://example.invalid/review/1", self.gl.notes(1)[-1]["body"], "GitLab issue links the review")
+        self.assertIn("https://example.invalid/review/1", self.gl.notes(1)[-1]["body"], "the backend issue links the review")
         self.assertEqual(json.loads((self.workdir / "state/dispatch/1.json").read_text())["status"], "MR_OPENED")
-        self.assertEqual(self.gl.created_mrs, [], "no GitLab MR: the fix lives on the development source")
+        self.assertEqual(self.gl.created_mrs, [], "no second review object is created by the tracker")
 
     def test_duplicate_dispatch_is_prevented(self):
         self.approve()

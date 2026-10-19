@@ -1,4 +1,4 @@
-"""Minimal GitHub (intake repository) and GitLab (backend project) adapters.
+"""Minimal GitHub adapter for the intake repository (the backend side is gap_github_backend.py).
 
 Only the calls the coordinator needs. Every read of user-controlled content
 (issue bodies, comments, notes) returns plain data; callers decide trust from
@@ -30,25 +30,6 @@ GITHUB_LABELS = {
     "gap:triage-rejected": ("5319e7", "Maintainer rejection of a gap request"),
 }
 STATE_LABELS = [name for name in GITHUB_LABELS if name.startswith("gap:") and not name.startswith("gap:triage-")]
-
-GITLAB_LABELS = {
-    "api-gap": "#5319e7",
-    "gap::accepted": "#0e8a16",
-    "gap::in-progress": "#1d76db",
-    "gap::contract-published": "#0e8a16",
-    "gap::resolved": "#0e8a16",
-    "gap::blocked": "#d93f0b",
-    "gap-sensitive": "#b60205",
-    # Input labels (trusted backend roles; verified through label events and member access).
-    "gap-dispatch::approved": "#5319e7",
-    "gap-owner::approved": "#5319e7",
-    "gap-triage::not-backend": "#5319e7",
-    "gap-triage::needs-decision": "#5319e7",
-    "gap-dispatch::failed": "#d93f0b",
-}
-GITLAB_STATE_LABELS = ["gap::accepted", "gap::in-progress", "gap::contract-published", "gap::resolved",
-                       "gap::blocked"]
-
 
 class GitHub:
     def __init__(self, repo: str, token: str | None, http: Http | None = None,
@@ -117,93 +98,3 @@ class GitHub:
 
     def close(self, number: int, reason: str = "completed") -> None:
         self.http.request("PATCH", self._r(f"issues/{number}"), body={"state": "closed", "state_reason": reason})
-
-
-class GitLab:
-    def __init__(self, project: str, token: str | None, http: Http | None = None,
-                 base: str = "https://gitlab.com/api/v4"):
-        # Bearer works for project/personal access tokens and OAuth tokens alike.
-        headers = {"Authorization": f"Bearer {token}"} if token else {}
-        self.project = urllib.parse.quote(project, safe="")
-        self.http = http or Http(base, headers)
-        if http is not None and token:
-            self.http.headers.update(headers)
-        self._access: dict[int, int] = {}
-
-    def _p(self, path: str) -> str:
-        return f"projects/{self.project}/{path}"
-
-    def find_by_fingerprint(self, fingerprint: str) -> list[dict]:
-        found = self.http.paginate(self._p("issues"), {"search": fingerprint[:16], "in": "title",
-                                                        "state": "all", "order_by": "created_at", "sort": "asc"})
-        marker = f"capitalix-gap fingerprint={fingerprint}"
-        return sorted((i for i in found if marker in (i.get("description") or "")), key=lambda i: i["iid"])
-
-    def issue(self, iid: int) -> dict:
-        return self.http.get(self._p(f"issues/{iid}"))
-
-    def gap_issues(self, state: str = "opened") -> list[dict]:
-        return self.http.paginate(self._p("issues"), {"labels": "api-gap", "state": state})
-
-    def create_issue(self, title: str, description: str, labels: list[str]) -> dict:
-        return self.http.request("POST", self._p("issues"), body={
-            "title": title, "description": description, "labels": ",".join(labels)})[0]
-
-    def update_issue(self, iid: int, **fields) -> dict:
-        return self.http.request("PUT", self._p(f"issues/{iid}"), body=fields)[0]
-
-    def notes(self, iid: int) -> list[dict]:
-        return self.http.paginate(self._p(f"issues/{iid}/notes"), {"sort": "asc"})
-
-    def add_note(self, iid: int, body: str) -> dict:
-        return self.http.request("POST", self._p(f"issues/{iid}/notes"), body={"body": body})[0]
-
-    def label_events(self, iid: int) -> list[dict]:
-        return self.http.paginate(self._p(f"issues/{iid}/resource_label_events"))
-
-    def access_level(self, user_id: int) -> int:
-        """Effective project access level (inherited membership included); 0 when not a member."""
-        if user_id not in self._access:
-            try:
-                self._access[user_id] = int(self.http.get(self._p(f"members/all/{user_id}")).get("access_level", 0))
-            except ApiError as exc:
-                if exc.status != 404:
-                    raise
-                self._access[user_id] = 0
-        return self._access[user_id]
-
-    def related_merge_requests(self, iid: int) -> list[dict]:
-        return self.http.paginate(self._p(f"issues/{iid}/related_merge_requests"))
-
-    def create_merge_request(self, source: str, title: str, description: str, target: str = "main") -> dict:
-        return self.http.request("POST", self._p("merge_requests"), body={
-            "source_branch": source, "target_branch": target, "title": title, "description": description,
-            "remove_source_branch": False, "labels": "api-gap"})[0]
-
-    def pipelines(self, sha: str) -> list[dict]:
-        return self.http.paginate(self._p("pipelines"), {"sha": sha, "ref": "main"}, limit=50)
-
-    def pipeline_jobs(self, pipeline_id: int) -> list[dict]:
-        return self.http.paginate(self._p(f"pipelines/{pipeline_id}/jobs"), {"include_retried": "false"})
-
-    def is_ancestor(self, ancestor: str, descendant: str) -> bool:
-        if ancestor == descendant:
-            return True
-        query = urllib.parse.urlencode([("refs[]", ancestor), ("refs[]", descendant)])
-        base = self.http.get(self._p(f"repository/merge_base?{query}"))
-        return (base or {}).get("id") == ancestor
-
-    def file_at(self, path: str, ref: str) -> bytes | None:
-        try:
-            return self.http.request("GET", self._p(f"repository/files/{urllib.parse.quote(path, safe='')}/raw"),
-                                     params={"ref": ref}, raw=True)[0]
-        except ApiError as exc:
-            if exc.status == 404:
-                return None
-            raise
-
-    def ensure_labels(self) -> None:
-        existing = {l["name"] for l in self.http.paginate(self._p("labels"))}
-        for name, color in GITLAB_LABELS.items():
-            if name not in existing:
-                self.http.request("POST", self._p("labels"), body={"name": name, "color": color})

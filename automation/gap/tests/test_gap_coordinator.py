@@ -390,7 +390,7 @@ class ReliabilityTests(unittest.TestCase):
         self.assertEqual(env.gl.issues[1]["state"], "opened")
         self.assertEqual(env.gh.state_of(1)["backend"], 1)
 
-    def test_restart_after_crash_between_gitlab_create_and_github_write(self):
+    def test_restart_after_crash_between_backend_create_and_intake_write(self):
         env = Env(self)
         env.submit(1)
         env.gh.fail["set_labels"] = [api_error(502, transient=True)]
@@ -401,7 +401,7 @@ class ReliabilityTests(unittest.TestCase):
         self.assertEqual(len(env.gl.issues), 1, "the restarted run finds the existing backend issue")
         self.assertIn("gap:accepted", env.gh.labels(1))
 
-    def test_gitlab_failure_keeps_state_and_counts_attempts(self):
+    def test_backend_failure_keeps_state_and_counts_attempts(self):
         env = Env(self)
         env.submit(1)
         env.gl.fail["find_by_fingerprint"] = [api_error(503, transient=True)]

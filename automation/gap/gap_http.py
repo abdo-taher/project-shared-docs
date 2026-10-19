@@ -1,4 +1,4 @@
-"""JSON-over-HTTPS client for the GitHub and GitLab REST APIs (stdlib only).
+"""JSON-over-HTTPS client for the GitHub REST API (stdlib only).
 
 - TLS is verified by urllib's default context; it is never disabled.
 - 429, rate-limit 403, 5xx and network timeouts are retried with exponential
@@ -116,7 +116,7 @@ class Http:
         return self.request("GET", path, params=params or None)[0]
 
     def paginate(self, path: str, params: dict | None = None, limit: int = 2000) -> list:
-        """Follow GitHub `Link: rel="next"` and GitLab `X-Next-Page` pagination."""
+        """Follow GitHub `Link: rel="next"` (and a generic `X-Next-Page`) pagination."""
         params = {"per_page": 100, **(params or {})}
         items: list = []
         url, query = path, params

@@ -15,7 +15,6 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(HERE.parent))
 
 import check_resolutions  # noqa: E402
-import promotion_audit  # noqa: E402
 from fakes import LIST_OPERATION, contract, merge_paths  # noqa: E402
 from gap_coordinator import RESOLUTION_SCHEMA, load_policy  # noqa: E402
 from gap_http import Http  # noqa: E402
@@ -198,57 +197,6 @@ class ResolutionGuardTests(unittest.TestCase):
     def test_no_directory_or_files_is_fine(self):
         self.assertEqual(check_resolutions.check_tree(self.dir, self.contract), [])
         self.assertEqual(check_resolutions.main(["--dir", str(self.root / "missing")]), 0)
-
-
-class PromotionAuditTests(unittest.TestCase):
-
-    def setUp(self):
-        tmp = tempfile.TemporaryDirectory()
-        self.addCleanup(tmp.cleanup)
-        self.repo = Path(tmp.name)
-        self.g("init", "-q", "-b", "dev")
-
-    def g(self, *args):
-        return subprocess.run(["git", "-C", str(self.repo), "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
-                              check=True, capture_output=True, text=True).stdout
-
-    def commit(self, files: dict, message="c"):
-        for name, text in files.items():
-            path = self.repo / name
-            path.parent.mkdir(parents=True, exist_ok=True)
-            path.write_text(text)
-            self.g("add", name)
-        self.g("commit", "-qm", message)
-
-    def test_unrelated_histories_and_evidence_comparison(self):
-        res = "docs/api-gap/resolutions"
-        self.commit({"a.txt": "dev", f"{res}/aaaa.json": "{}", f"{res}/same.json": "1", f"{res}/diff.json": "dev"})
-        self.g("checkout", "-q", "--orphan", "prod")
-        self.g("rm", "-rfq", ".")
-        self.commit({"b.txt": "prod", f"{res}/same.json": "1", f"{res}/diff.json": "prod", f"{res}/prodonly.json": "{}"})
-        report = promotion_audit.audit(str(self.repo), "dev", "prod")
-        self.assertFalse(report["promotion_by_ancestry_possible"])
-        self.assertIsNone(report["shared_ancestor"])
-        self.assertEqual(report["dev_only"], ["aaaa.json"])
-        self.assertEqual(report["prod_only"], ["prodonly.json"])
-        self.assertEqual(report["different"], ["diff.json"])
-        self.assertEqual(report["in_both"], ["same.json"])
-        self.assertEqual(promotion_audit.main(["--dev-repo", str(self.repo), "--dev-ref", "dev", "--prod-ref", "prod"]), 1)
-
-    def test_related_histories_with_everything_promoted(self):
-        res = "docs/api-gap/resolutions"
-        self.commit({"a.txt": "x", f"{res}/same.json": "1"})
-        self.g("branch", "prod")
-        report = promotion_audit.audit(str(self.repo), "dev", "prod")
-        self.assertTrue(report["promotion_by_ancestry_possible"])
-        self.assertEqual((report["dev_only"], report["prod_only"], report["different"]), ([], [], []))
-        self.assertEqual(promotion_audit.main(["--dev-repo", str(self.repo), "--dev-ref", "dev", "--prod-ref", "prod"]), 0)
-
-    def test_audit_is_read_only(self):
-        self.commit({"a.txt": "x"})
-        before = self.g("for-each-ref") + self.g("status", "--porcelain")
-        promotion_audit.audit(str(self.repo), "dev", "dev")
-        self.assertEqual(before, self.g("for-each-ref") + self.g("status", "--porcelain"))
 
 
 if __name__ == "__main__":
