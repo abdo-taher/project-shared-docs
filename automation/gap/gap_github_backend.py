@@ -160,6 +160,18 @@ class GitHubBackend:
                 return None
             raise
 
+    def is_ancestor(self, ancestor: str, descendant: str) -> bool:
+        """True when `ancestor` is `descendant` or one of its ancestors (GitHub compare API)."""
+        if ancestor == descendant:
+            return True
+        try:
+            data = self.http.get(self._r(f"compare/{ancestor}...{descendant}"))
+        except ApiError as exc:
+            if exc.status == 404:
+                return False
+            raise
+        return data.get("status") in ("ahead", "identical")
+
     def ensure_labels(self) -> None:
         existing = {l["name"] for l in self.http.paginate(self._r("labels"))}
         for name, color in LABELS.items():

@@ -11,11 +11,12 @@ Shared API contracts and business documentation for Capitalix consumers.
 | Report a missing or wrong API | [docs/API_GAP_WORKFLOW.md](docs/API_GAP_WORKFLOW.md) |
 | What was verified, and how | [docs/ACCEPTANCE_EVIDENCE.md](docs/ACCEPTANCE_EVIDENCE.md) |
 | Proposed protection for `main` | [docs/BRANCH_PROTECTION_PLAN.md](docs/BRANCH_PROTECTION_PLAN.md) |
-| Backend: generate, approve, publish | GitLab `alalmiyalhura/capitalix` `docs/api-contract/BACKEND_PUBLISHING_GUIDE.md` |
+| Backend: generate, approve, publish | [docs/api-gap/GITHUB_PUBLICATION.md](docs/api-gap/GITHUB_PUBLICATION.md) (GitHub only) |
+| API gap workflow, A to Z | [docs/api-gap/README.md](docs/api-gap/README.md) |
 
 | Path | Content | Written by |
 |---|---|---|
-| `api/implemented/` | approved, versioned OpenAPI contracts (`current.json`, `index.json`, `versions/`) | GitLab capitalix publish job only |
+| `api/implemented/` | approved, versioned OpenAPI contracts (`current.json`, `index.json`, `versions/`) | `contract-publish` workflow pull requests only |
 | `api/requirements/` | owner-app requirements mapping and gap report | pull requests |
 | `api/BACKEND_API.md` | owner (Flutter) app requirements | Flutter developer |
 | `business/` | business documentation | GitHub capitalix workflow |

@@ -1,7 +1,8 @@
 # Capitalix Implemented API Contracts
 
-Source: GitLab alalmiyalhura/capitalix
-Branch: main
+Source: GitHub abdo-taher/capitalix, branch integration/E01-FOUNDATION-SAAS
+(version 2026.10.18-06d388692794 is historical: it was published from the former GitLab
+production repository and keeps that provenance forever, because versions are immutable)
 
 This directory contains consumer-facing API documentation
 verified against the actual Laravel implementation.
@@ -28,5 +29,6 @@ Rules:
 
 Pin and use the contract with `tools/capitalix_contract.py`
 (see `docs/DEVELOPER_QUICKSTART.md` in this repository). Written only by the
-GitLab `alalmiyalhura/capitalix` publish job.
+the `contract-publish` workflow of this repository, through a pull request the owner approves
+(see `docs/api-gap/GITHUB_PUBLICATION.md`).
 

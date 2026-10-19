@@ -110,22 +110,16 @@ Negative control: `python3 automation/gap/check_resolutions.py --contract <publi
 | `gap-dispatch::failed` label | a writer removes it (or `--retry`) after reading the failure note |
 | wrong/duplicate backend issue | close one; the coordinator converges on the oldest per fingerprint |
 
-## 9. Publication — how it is verified, and the limit
+## 9. Publication
 
-Authoritative artifact: `api/implemented/current.json` → `versions/<v>/openapi.json` in `project-shared-docs`, whose
-sha256 is pinned in the manifest and re-verified by every client and by the coordinator. The manifest records a source
-commit, approval id and pipeline URLs from the **release system outside GitHub**; that system is not contacted or
-changed here, and approvals are HMAC-signed with a key consumers cannot check. Therefore:
+Authoritative artifact: `api/implemented/current.json` → `versions/<v>/openapi.json`, whose sha256 is pinned in the
+manifest and re-verified by every client and by the coordinator. New versions are produced only by workflow
+`contract-publish` (pull request, owner approval) from a verified `contract-build` run — see
+[GITHUB_PUBLICATION.md](GITHUB_PUBLICATION.md) for credentials (§3), operation (§4), rollback (§5) and the cutover
+checklist (§6). Configuration: repository variable `API_CONTRACT_PUBLICATION_ENABLED` (off), environment
+`contract-publisher`, the same GitHub App (needs Actions: read, and Contents + Pull requests: write on `project-shared-docs`).
 
-- *Verified independently by this automation:* digest integrity of the published bytes, and that the published contract
-  satisfies the fix's evidence checks (and did not before).
-- *Not verifiable from GitHub:* that the published contract was built from the merged GitHub commit.
-  A fix merged on GitHub reaches the published contract only if the external release process takes it. If it does not,
-  the state stays `MERGED_NOT_PUBLISHED` indefinitely — by design. A GitHub-only release path would be a separate,
-  owner-approved project.
-
-Verified publisher facts (repository + GitHub API only): the single published version was committed by `capitalix-gitlab-ci`
-through a read/write deploy key on this repository, and its manifest names a source commit of another repository, so a
-GitHub-merged fix cannot reach it. `main` of `project-shared-docs` is not branch-protected. The smallest GitHub-only
-alternative (attested build, publication by PR, merge = approval, rollback by revert) is specified in
-[GITHUB_PUBLICATION_PROPOSAL.md](GITHUB_PUBLICATION_PROPOSAL.md); it is a proposal awaiting owner decisions.
+Independent verification available to the automation: digest integrity, evidence checks on the published bytes,
+and — for GitHub-published contracts — that the build commit contains the merge of the fix. Not yet true: the cutover is
+pending, so the only published version (`2026.10.18-…`, built from the former GitLab production repository) still has
+content-only proof.

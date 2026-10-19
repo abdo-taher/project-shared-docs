@@ -21,9 +21,9 @@ the real API disagree.
 
 | Component | Where | Responsibility |
 |---|---|---|
-| Generator + gates | GitLab `alalmiyalhura/capitalix` (`scripts/ci/`, `.gitlab-ci.yml`) | generate the contract from production code; fail closed on invalid, nondeterministic, stale, uncovered, incompatible or lower-quality contracts |
-| Approval | same repo (`scripts/ci/openapi_owner_approve.sh`) | the owner signs the exact bytes; verified only by the protected main-branch job |
-| Publisher | same repo (`publish_shared_api_docs`) | writes immutable versions to this repository; the only writer of `api/implemented/` |
+| Generator + gates | GitHub `abdo-taher/capitalix` (`contract-build` workflow) | generate the contract from the development branch twice and require identical bytes; route-coverage gate; OpenAPI test suites; record exactly what was built |
+| Approval | this repo (publication pull request) | the owner reviews and merges the pull request that carries the exact bytes; enforced by branch protection and `contract-publication-verify` |
+| Publisher | this repo (`contract-publish` workflow, `tools/publish/`) | verifies the build against the GitHub API, classifies compatibility (breaking/unknown fail closed), opens a pull request with one new immutable version; the only writer of `api/implemented/` |
 | Published contracts | this repo `api/implemented/` | `versions/<version>/`, `current.json`, `index.json` |
 | Consumer tool | this repo `tools/capitalix_contract.py` | pin, verify, status/update, inspect, check, validate, sample, gap |
 | Agent instructions | this repo `docs/AI_AGENT_INSTRUCTIONS.md` | the rules a coding agent follows |
@@ -32,13 +32,14 @@ the real API disagree.
 
 ## Trust and versioning model
 
-- The contract describes **production code** (GitLab `main`).
+- The contract describes the **development branch** `integration/E01-FOUNDATION-SAAS` of `abdo-taher/capitalix` (the earlier version was built from the former GitLab production repository).
 - A version is `YYYY.MM.DD-<first 12 hex of sha256>`; its bytes never change.
 - Each version has a manifest: digest, source repository/commit, pipeline and
   job, approval evidence, baseline, compatibility summary.
 - Consumers verify digests themselves (`verify --remote`). The owner's
-  signature (HMAC) is verified by the protected pipeline job; consumers cannot
-  verify it independently — they rely on the digest chain and the GitLab job.
+  approval is the owner's review of the publication pull request on GitHub
+  (v1 used an HMAC that only its publisher could check). Consumers verify the
+  digest chain and the build run named in the manifest.
 - Breaking or unclassifiable changes are blocked; see `CONTRACT_VERSIONING.md`.
 
 ## Supported workflows

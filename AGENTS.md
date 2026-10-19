@@ -12,8 +12,10 @@ pinned copy: follow [`docs/AI_AGENT_INSTRUCTIONS.md`](docs/AI_AGENT_INSTRUCTIONS
 
 ## Working in this repository
 
-- `api/implemented/` is written ONLY by the GitLab `alalmiyalhura/capitalix`
-  publish job. Never edit it by hand; `versions/<version>/` is immutable.
+- `api/implemented/` is written ONLY by publication pull requests opened by the
+  `contract-publish` workflow of this repository (branch `publish/*`, approved by
+  the owner, checked by `contract-publication-verify`). Never edit it by hand;
+  `versions/<version>/` is immutable. See `docs/api-gap/GITHUB_PUBLICATION.md`.
 - `business/` is written by the GitHub `abdo-taher/capitalix` "Publish Shared
   Documentation" workflow.
 - `api/BACKEND_API.md` is the owner app's requirements (wishes), not the API.

@@ -2,7 +2,8 @@
 
 ## Backend
 Status: PUBLISHING — approved contract `2026.10.18-06d388692794`
-(`api/implemented/current.json`), published by the GitLab capitalix pipeline.
+(`api/implemented/current.json`), published by the GitHub `contract-publish` workflow once cut over (see
+`docs/api-gap/GITHUB_PUBLICATION.md`; this version predates it).
 
 ## Reference consumer (Dart)
 Status: CONNECTED — `examples/dart-owner-customers` pins the current version;

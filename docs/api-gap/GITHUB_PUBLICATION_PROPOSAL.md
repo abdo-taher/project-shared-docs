@@ -1,7 +1,8 @@
 # Proposal: GitHub-only publication of the official API contract
 
-**Status: proposal only — not implemented, needs owner approval.** The existing publisher is untouched and was not
-contacted.
+**Status: IMPLEMENTED (not yet cut over) — see [GITHUB_PUBLICATION.md](GITHUB_PUBLICATION.md).** This file is the
+original proposal and is kept for the decisions it records. Differences in the build: provenance uses GitHub's run record
+because artifact attestations are unavailable for private repositories on this plan.
 
 ## 1. Verified facts (from this repository and the GitHub API only)
 

@@ -472,6 +472,41 @@ class AppIdentityTests(unittest.TestCase):
             self.assertEqual(env.coordinator().own_logins(), {COORDINATOR})
 
 
+class GitHubPublicationProvenanceTests(unittest.TestCase):
+    """Contracts published by the GitHub publisher name the backend repository: the build must contain the fix."""
+
+    MERGE = "c" * 40
+    BUILD = "e" * 40
+
+    def release(self, env, fp, *, ancestor: bool):
+        env.release(1, fp, merged_sha=self.MERGE, publish_contract=False)
+        version, digest = publish(env.root, "2026.10.20", merge_paths(contract(), LIST_OPERATION), commit=self.BUILD,
+                                  repository=env.policy["backend_repository"])
+        if ancestor:
+            env.gl.ancestors.add((self.MERGE, self.BUILD))
+        return version, digest
+
+    def test_a_build_that_contains_the_merge_is_published_with_github_provenance(self):
+        env = Env(self)
+        fp = fp_of(env.submit(1))
+        env.run()
+        self.release(env, fp, ancestor=True)
+        env.run()
+        self.assertIn("gap:contract-published", env.gh.labels(1))
+        self.assertEqual(env.gh.state_of(1)["resolution"]["publication_proof"], "github-build-provenance")
+        self.assertTrue(any("built from a commit that contains the merged fix" in c["body"]
+                            for c in env.gh.comments(1)))
+
+    def test_a_build_that_predates_the_merge_is_not_published_even_if_the_content_matches(self):
+        env = Env(self)
+        fp = fp_of(env.submit(1))
+        env.run()
+        self.release(env, fp, ancestor=False)
+        env.run()
+        self.assertEqual(env.gh.state_of(1)["reason"], "MERGED_NOT_PUBLISHED")
+        self.assertNotIn("gap:contract-published", env.gh.labels(1))
+
+
 class ResolutionTests(unittest.TestCase):
 
     def accepted(self, env: Env) -> str:

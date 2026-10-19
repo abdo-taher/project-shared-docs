@@ -1,0 +1,82 @@
+name: contract-build
+
+# Builds the OpenAPI contract from a commit of the development branch and records exactly what was built.
+# It publishes NOTHING: the artifact is fetched and independently verified by abdo-taher/project-shared-docs
+# (workflow contract-publish), which opens a pull request that the owner must approve.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contract-build
+  cancel-in-progress: false
+
+jobs:
+  build:
+    # only the development branch can be built for publication
+    if: ${{ github.ref == 'refs/heads/integration/E01-FOUNDATION-SAAS' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0
+        with:
+          php-version: "8.5"
+          extensions: bcmath, intl, zip, mbstring, pdo_sqlite
+          ini-values: memory_limit=-1
+          tools: composer:v2
+      - name: Install
+        run: |
+          set -eu
+          composer install --no-interaction --prefer-dist --no-scripts
+          cp -n .env.example .env
+          php artisan key:generate --force
+      - name: Generate twice and require identical bytes
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
+        run: |
+          set -eu
+          mkdir -p build/out
+          php artisan openapi:generate --path=build/openapi-1.json
+          php artisan openapi:generate --path=build/openapi-2.json
+          cmp build/openapi-1.json build/openapi-2.json
+          cp build/openapi-1.json build/out/openapi.json
+      - name: Route coverage gate
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
+        run: php artisan openapi:coverage
+      - name: OpenAPI test suites
+        env:
+          DB_CONNECTION: sqlite
+          DB_DATABASE: ":memory:"
+        run: php vendor/bin/phpunit tests/Feature/Foundation/OpenApi tests/Unit/Foundation/OpenApi
+      - name: Record what was built
+        env:
+          REPO: ${{ github.repository }}
+          COMMIT: ${{ github.sha }}
+          RUN_ID: ${{ github.run_id }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import hashlib, json, os
+          data = open("build/out/openapi.json", "rb").read()
+          record = {"schema": "capitalix-contract-build/1", "repository": os.environ["REPO"],
+                    "commit": os.environ["COMMIT"], "run_id": int(os.environ["RUN_ID"]),
+                    "branch": os.environ["BRANCH"], "sha256": hashlib.sha256(data).hexdigest(), "size": len(data)}
+          json.dump(record, open("build/out/build-record.json", "w"), indent=2)
+          print("built", record["sha256"])
+          PY
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: contract-build
+          path: |
+            build/out/openapi.json
+            build/out/build-record.json
+          retention-days: 14
+          if-no-files-found: error

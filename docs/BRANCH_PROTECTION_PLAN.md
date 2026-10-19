@@ -8,7 +8,7 @@ Status: **proposed**. Nothing below has been applied. Audit date 2026-10-19.
 |---|---|
 | Classic branch protection | none (`404 Branch not protected`) |
 | Rulesets | none (repository and branch rules: 0) |
-| Writers to `main` | (1) pull-request merges by the owner; (2) GitLab `alalmiyalhura/capitalix` `publish_shared_api_docs` — direct push with the SSH deploy key 166881222 (write), `api/implemented/` only; (3) GitHub `abdo-taher/capitalix` "Publish Shared Documentation" — direct push with its `SHARED_DOCS_TOKEN` secret (acts as the owner's user), `business/` only |
+| Writers to `main` | (1) pull-request merges by the owner; (2) the legacy GitLab `alalmiyalhura/capitalix` `publish_shared_api_docs` — direct push with the SSH deploy key 166881222 (write), `api/implemented/` only — **to be retired**: its replacement is the `contract-publish` workflow (pull request, no direct push; cutover in `docs/api-gap/GITHUB_PUBLICATION.md`); (3) GitHub `abdo-taher/capitalix` "Publish Shared Documentation" — direct push with its `SHARED_DOCS_TOKEN` secret (acts as the owner's user), `business/` only |
 | How publishers push | `git pull --rebase origin main` then a normal `git push` — never a force push, never a branch deletion |
 | CI checks on pull requests | `tool`, `reference-consumer` (workflow `contract-toolkit`, runs on every PR) |
 
