@@ -123,3 +123,9 @@ changed here, and approvals are HMAC-signed with a key consumers cannot check. T
   A fix merged on GitHub reaches the published contract only if the external release process takes it. If it does not,
   the state stays `MERGED_NOT_PUBLISHED` indefinitely — by design. A GitHub-only release path would be a separate,
   owner-approved project.
+
+Verified publisher facts (repository + GitHub API only): the single published version was committed by `capitalix-gitlab-ci`
+through a read/write deploy key on this repository, and its manifest names a source commit of another repository, so a
+GitHub-merged fix cannot reach it. `main` of `project-shared-docs` is not branch-protected. The smallest GitHub-only
+alternative (attested build, publication by PR, merge = approval, rollback by revert) is specified in
+[GITHUB_PUBLICATION_PROPOSAL.md](GITHUB_PUBLICATION_PROPOSAL.md); it is a proposal awaiting owner decisions.
