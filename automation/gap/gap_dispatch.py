@@ -134,7 +134,7 @@ def run_agent(argv: list[str], *, worktree: Path, stdin_text: str, timeout: floa
         cmd = sandbox.docker_command(argv, name=name, image=image, worktree=worktree, readonly_files=mounts,
                                      config_dir=config_dir, extra_env=env, memory=sandbox_cfg.get("memory", "4g"),
                                      cpus=str(sandbox_cfg.get("cpus", "2")), agent_executable=executable,
-                                     max_seconds=int(timeout), secret_env=secret_env, tools_dir=Path(__file__).resolve().parent)
+                                     max_seconds=int(timeout), secret_env=secret_env, tools_dir=sandbox.stage_tools())
         known = guard.secret_values_in(config_dir / ".credentials.json") + list(secret_env.values())
         process = subprocess.Popen(cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
                                    text=True, env={"PATH": os.environ.get("PATH", "/usr/bin:/bin"),
@@ -603,7 +603,7 @@ root cause F and a one-paragraph explanation instead of editing it.
             raise Refused("independent verification: the evidence names no PHPUnit test file that exists in the change")
         commands = [c.replace("{tests}", " ".join(shlex.quote(t) for t in tests)) for c in cfg["commands"]]
         results = sandbox.run_verification(self.sandbox_cfg["image"], worktree, commands,
-                                           tools_dir=Path(__file__).resolve().parent,
+                                           tools_dir=sandbox.stage_tools(),
                                            timeout=int(cfg.get("timeout_seconds", 900)),
                                            memory=self.sandbox_cfg.get("memory", "4g"), cpus=str(self.sandbox_cfg.get("cpus", "2")))
         failed = [r for r in results if r["exit"] != 0]

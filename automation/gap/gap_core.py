@@ -8,7 +8,11 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_PATH = Path(__file__).resolve().parents[2] / "tools" / "capitalix_gap_core.py"
+_HERE = Path(__file__).resolve().parent
+# In the repository the single copy is tools/capitalix_gap_core.py; inside the sandbox the tooling is staged
+# (gap_sandbox.stage_tools) with that file next to this one.
+_PATH = next(p for p in (_HERE.parent.parent / "tools" / "capitalix_gap_core.py", _HERE / "capitalix_gap_core.py")
+             if p.is_file())
 _spec = importlib.util.spec_from_file_location("capitalix_gap_core", _PATH)
 _module = importlib.util.module_from_spec(_spec)
 sys.modules["capitalix_gap_core"] = _module

@@ -130,6 +130,29 @@ def new_name(prefix: str = "gap-agent") -> str:
     return f"{prefix}-{uuid.uuid4().hex[:10]}"
 
 
+_STAGED: Path | None = None
+
+
+def stage_tools() -> Path:
+    """A private copy of the gap tooling (and the single request-core file) to mount read-only in containers.
+
+    The repository layout (tools/ next to automation/) does not exist inside a container, so the files the evidence
+    checker needs are copied side by side. Created once per process, removed at exit."""
+    global _STAGED
+    if _STAGED is None or not _STAGED.is_dir():
+        import atexit
+        import shutil
+        import tempfile
+        here = Path(__file__).resolve().parent
+        staged = Path(tempfile.mkdtemp(prefix="gap-tools-"))
+        for path in here.glob("*.py"):
+            shutil.copy2(path, staged / path.name)
+        shutil.copy2(here.parent.parent / "tools" / "capitalix_gap_core.py", staged / "capitalix_gap_core.py")
+        atexit.register(shutil.rmtree, staged, True)
+        _STAGED = staged
+    return _STAGED
+
+
 def run_verification(image: str, worktree: Path, commands: list[str], *, tools_dir: Path | None, timeout: int,
                      memory: str = "4g", cpus: str = "2") -> list[dict]:
     """Re-run checks in ONE fresh container: no network, no agent login, no secrets, only the worktree writable.
