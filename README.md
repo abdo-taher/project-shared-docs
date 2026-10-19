@@ -9,6 +9,7 @@ Shared API contracts and business documentation for Capitalix consumers.
 | Rules for AI coding agents | [docs/AI_AGENT_INSTRUCTIONS.md](docs/AI_AGENT_INSTRUCTIONS.md) |
 | Versions, pinning, breaking changes | [docs/CONTRACT_VERSIONING.md](docs/CONTRACT_VERSIONING.md) |
 | What was verified, and how | [docs/ACCEPTANCE_EVIDENCE.md](docs/ACCEPTANCE_EVIDENCE.md) |
+| Proposed protection for `main` | [docs/BRANCH_PROTECTION_PLAN.md](docs/BRANCH_PROTECTION_PLAN.md) |
 | Backend: generate, approve, publish | GitLab `alalmiyalhura/capitalix` `docs/api-contract/BACKEND_PUBLISHING_GUIDE.md` |
 
 | Path | Content | Written by |

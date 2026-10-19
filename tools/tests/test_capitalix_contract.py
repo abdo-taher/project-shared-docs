@@ -54,9 +54,16 @@ def publish(root: Path, version: str, document: dict, date: str, commit: str):
     vdir = implemented / "versions" / version
     vdir.mkdir(parents=True, exist_ok=True)
     (vdir / "openapi.json").write_bytes(data)
+    approval = (json.dumps({"decision": "APPROVED", "approved_artifact_sha256": digest,
+                            "approved_by": "Owner", "trusted_approval_id": "MR-!1",
+                            "trusted_approval_signature": "ab" * 32}) + "\n").encode()
+    (vdir / "approval.json").write_bytes(approval)
+    approval_digest = hashlib.sha256(approval).hexdigest()
     manifest = {"schema": "capitalix-contract-manifest/1", "version": version, "sha256": digest,
                 "operations": 4, "source": {"repository": "g/capitalix", "commit": commit},
-                "approval": {"approved_by": "Owner", "trusted_approval_id": "MR-!1"},
+                "approval": {"approved_by": "Owner", "trusted_approval_id": "MR-!1",
+                             "approval_manifest_sha256": approval_digest},
+                "files": {"openapi.json": digest, "approval.json": approval_digest},
                 "compatibility": {"BREAKING": 0, "UNKNOWN": 0, "NON_BREAKING": 1}}
     (vdir / "manifest.json").write_text(json.dumps(manifest))
     index_path = implemented / "index.json"

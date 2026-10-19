@@ -8,6 +8,12 @@ The backend API is defined ONLY by the pinned contract in
 `.capitalix-contract/` (`openapi.json`, `manifest.json`, `contract.lock`).
 The tool is `tool/capitalix_contract.py` (Python 3, no packages).
 
+Access: the contract repository is public. Do not ask for, create or export a
+GitHub token, and do not run `gh auth login`, for read access. If a command
+reports `SOURCE UNREACHABLE`, the pinned copy still works offline: continue with
+it and report the network problem. Never bypass or edit around a failed
+integrity check (`FAILED: …`) — stop and report it.
+
 Before writing API code:
 
 1. `python3 tool/capitalix_contract.py verify` — stop if it fails.
