@@ -1,0 +1,113 @@
+name: API gap (capitalix.api-gap.v1)
+description: The approved contract is missing an operation or does not match what your app needs.
+title: "[API gap] "
+labels: ["api-gap", "gap:submitted"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Prefer the CLI: `python3 tool/capitalix_gap.py new ...` then `submit` (it fills every field from your
+        pinned contract). This form is the manual alternative. **Never paste tokens, passwords, cookies,
+        customer names, e-mails or phone numbers** — replace them with `<redacted>`; such requests are rejected.
+        Everything here is public. A maintainer reviews requests from outside the team before backend work starts.
+  - type: dropdown
+    id: gap_type
+    attributes:
+      label: Gap type
+      options: [MISSING_OPERATION, REQUEST_MISMATCH, RESPONSE_MISMATCH, AUTH_MISMATCH, VALIDATION_MISMATCH,
+                PAGINATION_MISMATCH, BUSINESS_RULE_GAP, CONTRACT_DOCUMENTATION_DEFECT]
+    validations: {required: true}
+  - type: dropdown
+    id: actor
+    attributes:
+      label: Actor
+      options: [owner, accountant, admin, auth, public]
+    validations: {required: true}
+  - type: input
+    id: consumer_project
+    attributes:
+      label: Consumer project
+      placeholder: capitalix-owner-app
+    validations: {required: true}
+  - type: dropdown
+    id: consumer_platform
+    attributes:
+      label: Consumer platform
+      options: [flutter, react, nextjs, vue, angular, web, ios, android, other]
+    validations: {required: true}
+  - type: input
+    id: feature
+    attributes:
+      label: Feature
+      placeholder: Customers list screen
+    validations: {required: true}
+  - type: input
+    id: capability_id
+    attributes:
+      label: Capability identifier
+      description: Required for MISSING_OPERATION and BUSINESS_RULE_GAP (e.g. CAP-OWN-180). Never invent a path.
+  - type: input
+    id: operation_id
+    attributes:
+      label: Operation ID
+      description: The existing operation (from `capitalix_contract.py list`/`inspect`). Leave empty for MISSING_OPERATION.
+  - type: dropdown
+    id: http_method
+    attributes:
+      label: HTTP method
+      options: [Not applicable, GET, POST, PUT, PATCH, DELETE]
+  - type: input
+    id: api_path
+    attributes:
+      label: API path
+      description: Canonical /api/... path of the existing operation; for MISSING_OPERATION only a suggestion.
+  - type: input
+    id: location
+    attributes:
+      label: Field or schema location
+      description: e.g. data.items[].phone, or for MISSING_OPERATION the missing action (customers.list).
+  - type: input
+    id: contract_version
+    attributes:
+      label: Contract version
+      description: "`capitalix_contract.py status` shows it, e.g. 2026.10.18-06d388692794"
+    validations: {required: true}
+  - type: input
+    id: contract_sha256
+    attributes:
+      label: Contract SHA256
+      description: The full sha256 in your .capitalix-contract/contract.lock
+    validations: {required: true}
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations: {required: true}
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations: {required: true}
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Reproduction evidence
+      description: Sanitized request/response excerpts only.
+      render: text
+  - type: textarea
+    id: requirements
+    attributes:
+      label: Requirement references
+      description: One per line (e.g. BACKEND_API.md#7 Customers).
+  - type: textarea
+    id: acceptance_criteria
+    attributes:
+      label: Acceptance criteria
+      description: One per line.
+    validations: {required: true}
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity suggestion
+      description: A suggestion only; the backend team decides priority.
+      options: [low, medium, high, critical]

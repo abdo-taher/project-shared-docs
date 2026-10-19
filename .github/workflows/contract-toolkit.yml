@@ -35,6 +35,9 @@ jobs:
           env -i PATH=/usr/bin:/bin HOME="$work" python3 tool/capitalix_contract.py status
           env -i PATH=/usr/bin:/bin HOME="$work" python3 tool/capitalix_contract.py verify --remote
           env -i PATH=/usr/bin:/bin HOME="$work" python3 tool/capitalix_contract.py inspect customers --method POST owner > /dev/null
+          # Gap reading is anonymous too (search lists the public gap issues).
+          cp "$GITHUB_WORKSPACE"/tools/capitalix_gap.py "$GITHUB_WORKSPACE"/tools/capitalix_gap_core.py "$work/tool/"
+          env -i PATH=/usr/bin:/bin HOME="$work" python3 tool/capitalix_gap.py search --fingerprint 0000000000000000
 
   reference-consumer:
     runs-on: ubuntu-latest
