@@ -127,6 +127,14 @@ class PreflightTests(unittest.TestCase):
         s = self.statuses(report)
         self.assertEqual((s["backend token type"], s["backend repository role"]), ("PASS", "PASS"))
 
+    def test_backend_app_installation_token_is_accepted_without_a_role_report(self):
+        routes = self.backend_routes()
+        routes["repos/abdo-taher/capitalix"] = (200, {"private": True}, {})
+        report = self.run_backend(routes, token="ghs_" + "D" * 36)
+        s = self.statuses(report)
+        self.assertFalse(report.failed, report.rows)
+        self.assertEqual((s["backend token type"], s["backend repository role"]), ("PASS", "PASS"))
+
     def test_backend_problems(self):
         self.assertEqual(self.statuses(self.run_backend(self.backend_routes(admin=True)))["backend repository role"], "WARN")
         self.assertEqual(self.statuses(self.run_backend(self.backend_routes(issues=403)))["backend issues readable"], "FAIL")

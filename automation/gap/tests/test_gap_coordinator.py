@@ -61,7 +61,9 @@ class Env:
                         {"check": "field_present", "operation_id": "owner.sales.customers.index",
                          "in": "response", "field": "data.items[].name"}],
                     "tests": ["tests/Feature/Owner/CustomerIndexTest.php"]}
-        self.gl.files[(f"docs/api-gap/resolutions/{fingerprint[:16]}.json", merged_sha)] = json.dumps(evidence).encode()
+        path = f"docs/api-gap/resolutions/{fingerprint[:16]}.json"
+        self.gl.files[(path, merged_sha)] = json.dumps(evidence).encode()
+        self.gl.files[(path, base if base == DEV_BRANCH else DEV_BRANCH)] = json.dumps(evidence).encode()
         return self.publish_fix() if publish_contract else None
 
 
@@ -499,6 +501,25 @@ class ResolutionTests(unittest.TestCase):
         env.release(1, fp, base="some-feature-branch")
         env.run()
         self.assertIn("gap:accepted", env.gh.labels(1), "a merge elsewhere is not backend progress")
+        self.assertNotIn("gap:contract-published", env.gh.labels(1))
+
+    def test_a_later_merged_pull_request_that_only_mentions_the_issue_does_not_hide_the_fix(self):
+        env = Env(self)
+        fp = self.accepted(env)
+        env.release(1, fp)
+        env.gl.mrs[1].append({"iid": 9, "state": "merged", "target_branch": DEV_BRANCH, "merge_commit_sha": "f" * 40,
+                              "sha": "a" * 40, "merged_at": "2026-10-21T10:00:00Z"})
+        env.run()
+        self.assertIn("gap:contract-published", env.gh.labels(1))
+        self.assertEqual(env.gh.state_of(1)["resolution"]["merge_request"], 5)
+
+    def test_a_reverted_fix_whose_evidence_left_the_branch_is_not_published(self):
+        env = Env(self)
+        fp = self.accepted(env)
+        env.release(1, fp)
+        del env.gl.files[(f"docs/api-gap/resolutions/{fp[:16]}.json", DEV_BRANCH)]
+        env.run()
+        self.assertEqual(env.gh.state_of(1)["reason"], "RESOLUTION_EVIDENCE_NOT_ON_BRANCH")
         self.assertNotIn("gap:contract-published", env.gh.labels(1))
 
     def test_a_closed_unmerged_pull_request_is_not_a_fix(self):

@@ -403,7 +403,7 @@ class Coordinator:
         if any(mr.get("state") == "opened" for mr in mrs) or "gap::in-progress" in present \
                 or reason in ("MERGED_NOT_PUBLISHED", "PUBLICATION_NOT_CONFIRMED", "PUBLISHED_SCHEMA_INCORRECT",
                               "RESOLUTION_EVIDENCE_MISSING", "RESOLUTION_EVIDENCE_INVALID",
-                              "RESOLUTION_EVIDENCE_VACUOUS"):
+                              "RESOLUTION_EVIDENCE_VACUOUS", "RESOLUTION_EVIDENCE_NOT_ON_BRANCH"):
             return "IN_PROGRESS", reason, None
         return "ACCEPTED", reason, None
 
@@ -422,11 +422,19 @@ class Coordinator:
                         key=lambda p: p.get("merged_at") or "", reverse=True)
         if not merged:
             return None, "NO_MERGED_MR" if prs else "NO_MR"
-        change = merged[0]
-        merge_sha = change.get("merge_commit_sha") or change["sha"]
-        raw = self.gl.file_at(f"{self.policy['resolution_dir']}/{fingerprint[:16]}.json", merge_sha)
-        if raw is None:
+        path = f"{self.policy['resolution_dir']}/{fingerprint[:16]}.json"
+        change, raw = None, None
+        for candidate in merged:  # a merged PR that merely mentions the issue must not hide the real fix
+            sha = candidate.get("merge_commit_sha") or candidate["sha"]
+            raw = self.gl.file_at(path, sha)
+            if raw is not None:
+                change, merge_sha = candidate, sha
+                break
+        if change is None:
             return None, "RESOLUTION_EVIDENCE_MISSING"
+        # the evidence must still be on the development branch: a later revert must not leave a gap "published"
+        if self.gl.file_at(path, self.policy["development"]["base_branch"]) is None:
+            return None, "RESOLUTION_EVIDENCE_NOT_ON_BRANCH"
         evidence, problem = parse_resolution(raw, fingerprint, iid)
         if problem:
             return None, "RESOLUTION_EVIDENCE_INVALID"

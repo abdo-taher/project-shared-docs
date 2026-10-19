@@ -136,7 +136,9 @@ class LifecycleTests(unittest.TestCase):
             doc = {"schema": RESOLUTION_SCHEMA, "fingerprint": fingerprint, "backend_issue": 1, "root_cause": "A",
                    "summary": "Adds the customers list.", "tests": ["tests/X.php"],
                    "checks": checks or [{"check": "operation_exists", "operation_id": "owner.sales.customers.index"}]}
-            self.server.files[(f"docs/api-gap/resolutions/{fingerprint[:16]}.json", MERGE_SHA)] = json.dumps(doc).encode()
+            path = f"docs/api-gap/resolutions/{fingerprint[:16]}.json"
+            self.server.files[(path, MERGE_SHA)] = json.dumps(doc).encode()
+            self.server.files[(path, DEV_BRANCH)] = json.dumps(doc).encode()
 
     def test_full_lifecycle_never_reports_resolved_before_publication_and_confirmation(self):
         env = self.env

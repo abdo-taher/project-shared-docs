@@ -168,6 +168,20 @@ class WorkflowIsolationTests(unittest.TestCase):
             for secret in ("API_GAP_GITHUB_TOKEN", "API_GAP_BACKEND_TOKEN", "API_GAP_DISPATCH_TOKEN"):
                 self.assertNotIn(secret, path.read_text(), path.name)
 
+    def test_the_privileged_workflow_pins_every_action_by_commit_and_scopes_each_token_to_one_repository(self):
+        text = workflow("api-gap-coordinator.yml")
+        uses = re.findall(r"(?m)^\s*(?:- )?uses: (\S+)", text)
+        self.assertGreaterEqual(len(uses), 4)
+        for ref in uses:
+            self.assertRegex(ref, r"@[0-9a-f]{40}$", ref)
+        self.assertIn("persist-credentials: false", text)
+        repos = re.findall(r"(?m)^\s+repositories: (\S+)$", text)
+        self.assertEqual(sorted(repos), ["capitalix", "project-shared-docs"])
+        self.assertNotIn("permission-contents: write", text)
+        self.assertNotIn("permission-administration", text)
+        # the only long-lived secret is the App key; no personal token is referenced
+        self.assertEqual(sorted(set(re.findall(r"secrets\.(\w+)", text))), ["API_GAP_APP_PRIVATE_KEY"])
+
     def test_the_test_workflow_has_no_secrets_and_read_only_permissions(self):
         text = workflow("api-gap-automation-tests.yml")
         self.assertNotIn("secrets.", text)

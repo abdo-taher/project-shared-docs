@@ -27,34 +27,38 @@ No secret value appears in this file; `<…>` are placeholders.
 
 A patch, a branch or an opened PR never advances past `IN_PROGRESS`. Missing/invalid/vacuous evidence fails closed.
 
-## 3. Credentials (logical roles)
+## 3. Credentials
 
-GitHub does not allow creating fine-grained personal access tokens or Apps through an API available to this tooling;
-**the account owner creates them in the UI**. Recommended: one GitHub App (installation tokens are short-lived) with the
-permissions below; fine-grained PATs scoped to a single repository are the fallback.
+Four logical roles, **one** underlying identity for everything that runs in GitHub Actions: a private GitHub App
+(`capitalix-api-gap`) installed on exactly `project-shared-docs` and `capitalix`. Each job mints two installation tokens
+that live one hour and are each limited to one repository and the minimum permissions (the workflow requests them; the App
+only sets the ceiling). The App's private key is the only long-lived secret.
 
-| Name (secret) | Purpose | Repository scope | Minimum permissions | Lives in |
+| Logical role | Realised as | Repository | Permissions | Where it lives |
 |---|---|---|---|---|
-| `API_GAP_GITHUB_TOKEN` | coordinator reads/writes intake issues | `abdo-taher/project-shared-docs` only | Issues: read/write, Metadata: read | shared-docs → Environment `api-gap-coordinator` → secret |
-| `API_GAP_BACKEND_TOKEN` | coordinator reads/writes backend tracking issues, reads PRs and evidence files | `abdo-taher/capitalix` only | Issues: read/write, Pull requests: read, Contents: read, Metadata: read | same environment secret |
-| `API_GAP_DISPATCH_TOKEN` | worker labels/comments the backend issue | `abdo-taher/capitalix` only | Issues: read/write, Metadata: read | worker host env file (`~/.config/capitalix-gap/worker.env`, mode 600) — never in Actions |
-| agent credential | the coding agent's own model login | n/a | dedicated revocable token (`claude setup-token`) | worker env file (`API_GAP_AGENT_CLAUDE_CODE_OAUTH_TOKEN`) |
-| (operator's git/gh login) | pushes `gap/*` branches, opens the Draft PR | `abdo-taher/capitalix` | Contents: write, Pull requests: write — prefer a push-only deploy key/App | operator host |
+| `API_GAP_GITHUB_TOKEN` | installation token minted per run | `project-shared-docs` only | Issues: write, Metadata: read | never stored; step output |
+| `API_GAP_BACKEND_TOKEN` | installation token minted per run | `capitalix` only | Issues: write, Pull requests: read, Contents: read, Metadata: read | never stored; step output |
+| App key | `API_GAP_APP_PRIVATE_KEY` (secret) + `API_GAP_APP_CLIENT_ID` (variable) | — | App ceiling: issues write, pull requests read, contents read, metadata read — no code write, no merge | Environment `api-gap-coordinator` of `project-shared-docs` (required reviewer = owner, branch `main` only) |
+| `API_GAP_DISPATCH_TOKEN` | fine-grained PAT (the worker is long-running, so a one-hour token does not fit) | `capitalix` only | Issues: write, Metadata: read | worker host `~/.config/capitalix-gap/worker.env`, mode 600 — never in Actions |
+| agent credential | `API_GAP_AGENT_CLAUDE_CODE_OAUTH_TOKEN` from `claude setup-token` | n/a | dedicated, revocable | same worker env file |
+| branch push / Draft PR (worker host) | operator's git login or a deploy key | `capitalix` | Contents + Pull requests: write | operator host |
 
-The two coordinator tokens must be **separate** (preflight fails if the intake token can read the backend repository).
-
-Set secrets without leaking them (reads from a prompt, not from argv or history):
+What the API of GitHub does **not** allow (so these steps are the account owner's, done once in the UI): creating Apps or
+fine-grained tokens programmatically. `automation/gap/github-app-manifest.json` holds the App definition (Settings →
+Developer settings → GitHub Apps → New, or the manifest flow), then install it on the two repositories only.
 
 ```sh
-gh secret set API_GAP_GITHUB_TOKEN  --env api-gap-coordinator -R abdo-taher/project-shared-docs   # paste at the prompt
-gh secret set API_GAP_BACKEND_TOKEN --env api-gap-coordinator -R abdo-taher/project-shared-docs
-install -m 600 /dev/null ~/.config/capitalix-gap/worker.env   # then edit; never `echo TOKEN=… >>`
+# after creating/installing the App and downloading its private key file (never commit it):
+gh variable set API_GAP_APP_CLIENT_ID --body "<client id>" -R abdo-taher/project-shared-docs
+gh secret set API_GAP_APP_PRIVATE_KEY --env api-gap-coordinator -R abdo-taher/project-shared-docs < /path/to/key.pem
+shred -u /path/to/key.pem        # the secret store is now the only copy
+install -m 600 /dev/null ~/.config/capitalix-gap/worker.env   # then edit it; never `echo TOKEN=… >>`
 ```
 
-Verify (prints PASS/WARN/FAIL per check, never a value): run the workflow with the flag on (below) or locally
-`API_GAP_GITHUB_TOKEN=… API_GAP_BACKEND_TOKEN=… python3 automation/gap/gap_preflight.py`.
-Rotate: create the new credential, update the secret, run the preflight, revoke the old one. Fine-grained PATs: ≤ 90
-days. Revoke any token that was pasted in a chat or log immediately.
+The separation rule is enforced: the preflight fails if the intake token can read the backend repository.
+Verify without side effects: run the workflow with `dry_run=true` (the preflight lists PASS/WARN/FAIL per check, never a value).
+Rotate: generate a new App key, update the secret, run the preflight, delete the old key in the App settings
+(rotate yearly or on any suspicion). The worker PAT: ≤ 90 days. Anything pasted into a chat or log is revoked at once.
 
 ## 4. Enabling, running, disabling
 
@@ -83,7 +87,7 @@ Worker: `python3 automation/gap/gap_worker.py run` under a supervised user unit;
 ## 6. Tests
 
 ```sh
-python3 -m unittest discover -s automation/gap/tests     # 242 tests; Docker-backed ones skip without the image
+python3 -m unittest discover -s automation/gap/tests     # 246 tests; Docker-backed ones skip without the image
 python3 -m unittest discover -s tools/tests              # consumer tooling + shared conformance corpus
 docker run --rm -v "$PWD:/repo" -w /repo rhysd/actionlint:1.7.7 .github/workflows/api-gap-*.yml
 docker build -f automation/gap/image/gap-agent.Dockerfile -t capitalix-gap-agent:2 automation/gap/image   # sandbox image

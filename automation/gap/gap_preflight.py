@@ -105,11 +105,13 @@ def backend_checks(report: Report, policy: dict, token: str | None, http: Http |
     if not token:
         report.add("FAIL", "backend token present", "API_GAP_BACKEND_TOKEN is not set")
         return
-    kind = "fine-grained" if token.startswith("github_pat_") else ("classic" if token.startswith(("ghp_", "gho_")) else "other")
+    kind = ("app installation" if token.startswith("ghs_") else "fine-grained" if token.startswith("github_pat_")
+            else ("classic" if token.startswith(("ghp_", "gho_")) else "other"))
     http = http or Http(base, {"Accept": "application/vnd.github+json", "Authorization": f"Bearer {token}",
                                "X-GitHub-Api-Version": "2022-11-28"}, attempts=2)
-    report.add("PASS" if kind == "fine-grained" else "WARN", "backend token type",
-               kind + ("" if kind == "fine-grained" else " (cannot be limited to one repository; use a fine-grained "
+    scoped = kind in ("fine-grained", "app installation")
+    report.add("PASS" if scoped else "WARN", "backend token type",
+               kind + ("" if scoped else " (cannot be limited to one repository; use a fine-grained "
                        "token: Issues read/write, Pull requests read, Contents read, Metadata read)"))
     repo = policy["backend_repository"]
     try:
@@ -118,10 +120,13 @@ def backend_checks(report: Report, policy: dict, token: str | None, http: Http |
         report.add("FAIL", "backend repository access", str(exc))
         return
     report.add("PASS", "backend repository access", f"{repo} (private={info.get('private')})")
-    perms = info.get("permissions") or {}
-    report.add("WARN" if perms.get("admin") else "PASS", "backend repository role",
-               "admin (broader than needed)" if perms.get("admin") else
-               ("write" if perms.get("push") else "read"))
+    perms = info.get("permissions")
+    if not perms:
+        report.add("PASS", "backend repository role", "not reported for this token type (scoped by its permissions)")
+    else:
+        report.add("WARN" if perms.get("admin") else "PASS", "backend repository role",
+                   "admin (broader than needed)" if perms.get("admin") else
+                   ("write" if perms.get("push") else "read"))
     try:
         http.request("GET", f"repos/{repo}/issues", params={"labels": "api-gap", "per_page": 1})
         report.add("PASS", "backend issues readable", "")

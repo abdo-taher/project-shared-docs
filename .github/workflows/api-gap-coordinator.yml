@@ -29,19 +29,45 @@ jobs:
     environment: api-gap-coordinator
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
         with:
           python-version: "3.12"
+      # One GitHub App, installed on exactly the two repositories, mints two SHORT-LIVED (1 h) installation tokens,
+      # each limited to ONE repository and the minimum permissions. The App's private key is the only long-lived secret.
+      - name: Token for the intake repository (issues only)
+        id: intake
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.API_GAP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.API_GAP_APP_PRIVATE_KEY }}
+          owner: abdo-taher
+          repositories: project-shared-docs
+          permission-issues: write
+          permission-metadata: read
+      - name: Token for the backend repository (tracking issues, read pull requests and evidence)
+        id: backend
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.API_GAP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.API_GAP_APP_PRIVATE_KEY }}
+          owner: abdo-taher
+          repositories: capitalix
+          permission-issues: write
+          permission-pull-requests: read
+          permission-contents: read
+          permission-metadata: read
       - name: Preflight (credentials and activation prerequisites)
         env:
-          API_GAP_GITHUB_TOKEN: ${{ secrets.API_GAP_GITHUB_TOKEN }}
-          API_GAP_BACKEND_TOKEN: ${{ secrets.API_GAP_BACKEND_TOKEN }}
+          API_GAP_GITHUB_TOKEN: ${{ steps.intake.outputs.token }}
+          API_GAP_BACKEND_TOKEN: ${{ steps.backend.outputs.token }}
         run: python3 automation/gap/gap_preflight.py
       - name: Synchronize
         env:
-          API_GAP_GITHUB_TOKEN: ${{ secrets.API_GAP_GITHUB_TOKEN }}
-          API_GAP_BACKEND_TOKEN: ${{ secrets.API_GAP_BACKEND_TOKEN }}
+          API_GAP_GITHUB_TOKEN: ${{ steps.intake.outputs.token }}
+          API_GAP_BACKEND_TOKEN: ${{ steps.backend.outputs.token }}
           INPUT_ISSUES: ${{ inputs.issues }}
           INPUT_DRY_RUN: ${{ inputs.dry_run }}
         run: |
