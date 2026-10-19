@@ -281,7 +281,7 @@ class SharedContractTests(unittest.TestCase):
         corpus = json.loads((TOOLS / "tests/gap-conformance.json").read_text())
         source = (TOOLS / "capitalix_gap_core.py").read_bytes()
         self.assertEqual(hashlib.sha256(source).hexdigest(), corpus["core_sha256"],
-                         "edit the core in both repositories together and update core_sha256 in both corpora")
+                         "after editing the core, update core_sha256 in tools/tests/gap-conformance.json")
         for case in corpus["cases"]:
             with self.subTest(case["name"]):
                 errors = core.validate(case["request"])

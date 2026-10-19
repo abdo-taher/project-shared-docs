@@ -1,0 +1,57 @@
+name: api-gap-coordinator
+
+# Manual only. There is deliberately no schedule: production automation stays disabled until the owner
+# enables it (repository variable API_GAP_AUTOMATION_ENABLED=true) AND adds a schedule in a reviewed change.
+# This job never starts a coding agent, never merges, never publishes a contract.
+on:
+  workflow_dispatch:
+    inputs:
+      issues:
+        description: "Only these intake issue numbers (space separated digits); empty = all open gap issues"
+        required: false
+        default: ""
+      dry_run:
+        description: "Read only: report the actions without taking them"
+        required: false
+        default: "true"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: api-gap-coordinator
+  cancel-in-progress: false
+
+jobs:
+  coordinate:
+    if: ${{ vars.API_GAP_AUTOMATION_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    environment: api-gap-coordinator
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Preflight (credentials and activation prerequisites)
+        env:
+          API_GAP_GITHUB_TOKEN: ${{ secrets.API_GAP_GITHUB_TOKEN }}
+          API_GAP_BACKEND_TOKEN: ${{ secrets.API_GAP_BACKEND_TOKEN }}
+        run: python3 automation/gap/gap_preflight.py
+      - name: Synchronize
+        env:
+          API_GAP_GITHUB_TOKEN: ${{ secrets.API_GAP_GITHUB_TOKEN }}
+          API_GAP_BACKEND_TOKEN: ${{ secrets.API_GAP_BACKEND_TOKEN }}
+          INPUT_ISSUES: ${{ inputs.issues }}
+          INPUT_DRY_RUN: ${{ inputs.dry_run }}
+        run: |
+          set -eu
+          args=""
+          for n in $INPUT_ISSUES; do
+            case "$n" in *[!0-9]*) echo "ERROR: issues takes issue numbers"; exit 3;; esac
+            args="$args --issue $n"
+          done
+          if [ "$INPUT_DRY_RUN" != "false" ]; then args="$args --dry-run"; fi
+          # shellcheck disable=SC2086
+          python3 automation/gap/gap_coordinator.py sync $args --report-md gap-report.md --report-json gap-report.json
+          cat gap-report.md >> "$GITHUB_STEP_SUMMARY"
