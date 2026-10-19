@@ -55,16 +55,33 @@ def github_checks(report: Report, policy: dict, token: str | None, http: Http | 
                    "token (Issues: read & write, Metadata: read) or a GitHub App")
     elif kind == "fine-grained":
         report.add("PASS", "github token type", "fine-grained")
-    try:
-        user, _ = http.request("GET", "user")
-    except ApiError as exc:
-        report.add("FAIL", "github token valid", str(exc))
-        return
-    login = user.get("login")
-    expected = policy["coordinator_github_login"]
-    report.add("PASS" if login == expected else "FAIL", "github identity",
-               f"token belongs to {login}" + ("" if login == expected else f", policy expects {expected}"))
     repo = policy["github_repository"]
+    if token.startswith("ghs_"):
+        # An App installation token cannot call GET /user. Its identity is the bot account, and the repositories it
+        # can reach are listed by the installation endpoint: exactly the intake repository is the least-privilege shape.
+        report.add("PASS", "github token type", "app installation")
+        app_login = os.environ.get("API_GAP_APP_LOGIN", "").strip()
+        report.add("PASS" if app_login.endswith("[bot]") else "FAIL", "github identity",
+                   f"app bot account {app_login}" if app_login.endswith("[bot]")
+                   else "API_GAP_APP_LOGIN=<app-slug>[bot] is not set (state comments could not be recognised)")
+        try:
+            data, _ = http.request("GET", "installation/repositories")
+            names = sorted(r["full_name"] for r in data.get("repositories", []))
+            report.add("PASS" if names == [repo] else "FAIL", "github installation scope",
+                       ", ".join(names) or "none" if names == [repo] else
+                       f"token reaches {', '.join(names) or 'nothing'}; it must reach only {repo}")
+        except ApiError as exc:
+            report.add("FAIL", "github installation scope", str(exc))
+    else:
+        try:
+            user, _ = http.request("GET", "user")
+        except ApiError as exc:
+            report.add("FAIL", "github token valid", str(exc))
+            return
+        login = user.get("login")
+        expected = policy["coordinator_github_login"]
+        report.add("PASS" if login == expected else "FAIL", "github identity",
+                   f"token belongs to {login}" + ("" if login == expected else f", policy expects {expected}"))
     try:
         info, headers = http.request("GET", f"repos/{repo}")
         report.add("PASS", "github intake repository readable", repo)

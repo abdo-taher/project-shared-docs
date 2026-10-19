@@ -78,6 +78,33 @@ class PreflightTests(unittest.TestCase):
                 "repos/abdo-taher/project-shared-docs/issues": (200, [], {}),
                 "repos/abdo-taher/project-shared-docs/collaborators/abdo-taher/permission": (200, {"role_name": "admin"}, {})}
 
+    def app_routes(self, repos=("abdo-taher/project-shared-docs",)):
+        routes = self.good_github()
+        del routes["user"]   # an installation token gets 403 on GET /user
+        routes["installation/repositories"] = (200, {"repositories": [{"full_name": r} for r in repos]}, {})
+        return routes
+
+    def test_app_installation_token_passes_without_calling_user(self):
+        import os
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"API_GAP_APP_LOGIN": "capitalix-api-gap[bot]"}):
+            report, server = self.run_github(self.app_routes(), token="ghs_" + "E" * 36)
+        s = self.statuses(report)
+        self.assertFalse(report.failed, report.rows)
+        self.assertEqual((s["github token type"], s["github identity"], s["github installation scope"]),
+                         ("PASS", "PASS", "PASS"))
+
+    def test_app_installation_token_must_reach_only_the_intake_repository_and_know_its_bot_login(self):
+        import os
+        from unittest import mock
+        with mock.patch.dict(os.environ, {"API_GAP_APP_LOGIN": "capitalix-api-gap[bot]"}):
+            report, _ = self.run_github(self.app_routes(repos=("abdo-taher/project-shared-docs", "abdo-taher/capitalix")),
+                                        token="ghs_" + "E" * 36)
+        self.assertEqual(self.statuses(report)["github installation scope"], "FAIL")
+        with mock.patch.dict(os.environ, {"API_GAP_APP_LOGIN": ""}):
+            report, _ = self.run_github(self.app_routes(), token="ghs_" + "E" * 36)
+        self.assertEqual(self.statuses(report)["github identity"], "FAIL")
+
     def test_github_token_that_cannot_verify_trust_fails_the_preflight(self):
         routes = self.good_github()
         del routes["repos/abdo-taher/project-shared-docs/collaborators/abdo-taher/permission"]
