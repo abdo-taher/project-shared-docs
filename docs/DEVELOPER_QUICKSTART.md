@@ -19,13 +19,15 @@ anonymous access cannot see the file.
 
 ```sh
 mkdir -p tool
-curl -fsSL -o tool/capitalix_contract.py \
-  https://raw.githubusercontent.com/abdo-taher/project-shared-docs/main/tools/capitalix_contract.py
+for f in capitalix_contract.py capitalix_gap.py capitalix_gap_core.py; do
+  curl -fsSL -o "tool/$f" "https://raw.githubusercontent.com/abdo-taher/project-shared-docs/main/tools/$f"
+done
 python3 tool/capitalix_contract.py init
 ```
 
-Read `tool/capitalix_contract.py` before you commit it — it is a single,
-dependency-free file. It never executes anything it downloads.
+Read the files before you commit them — they are dependency-free Python and never
+execute anything they download. `capitalix_contract.py` is all you need to use
+the contract; the two `capitalix_gap*` files are for reporting gaps (section 5).
 
 `init` downloads the **current approved** version and refuses to pin it unless
 the contract's sha256 matches the published pointer and manifest, and the
@@ -112,13 +114,49 @@ the new `.capitalix-contract/`.
 
 ## 5. Something you need is missing
 
-Do not invent it. Run the gap report and raise it with the backend:
+Do not invent it. Report it as a structured API gap; the backend tracks it,
+and you are told when an approved contract contains the fix.
 
 ```sh
-python3 tool/capitalix_contract.py gap path/to/requirements.md --out gap.md
+# 1. describe it against your pin (the tool fills version, sha256 and the canonical operation)
+python3 tool/capitalix_gap.py new --type MISSING_OPERATION --actor owner \
+  --capability CAP-OWN-180 --location customers.list \
+  --feature "Customers list" --project my-app --platform flutter \
+  --expected "A paginated list of the owner's customers" \
+  --actual "The contract has no list operation for owner customers" \
+  --criterion "GET list returns data.items[] with id and name"
+# 2. already reported? (anonymous)
+python3 tool/capitalix_gap.py search .capitalix-gaps/<id>.json
+# 3. file it (needs a GitHub identity: GITHUB_TOKEN/GH_TOKEN or `gh auth login`)
+python3 tool/capitalix_gap.py submit .capitalix-gaps/<id>.json
+# 4. follow it
+python3 tool/capitalix_gap.py status <issue>
 ```
 
-The owner-app report is in `api/requirements/GAP_REPORT.md`.
+| Gap type | Use when | Identify it with |
+|---|---|---|
+| `MISSING_OPERATION` | no operation exists for what you need | `--capability` + `--location <missing action>`; `--method/--path` only as a suggestion |
+| `REQUEST_MISMATCH`, `RESPONSE_MISMATCH`, `VALIDATION_MISMATCH`, `PAGINATION_MISMATCH` | the operation exists but its request/response/validation/pagination is wrong for you | `--operation <operationId>` (or `--method --path`) + `--location data.items[].phone` |
+| `AUTH_MISMATCH` | authentication or permission does not fit | `--operation` |
+| `BUSINESS_RULE_GAP` | the behavior needs a business rule that is not there | `--capability` |
+| `CONTRACT_DOCUMENTATION_DEFECT` | the contract describes the operation wrongly | `--operation` + `--location` |
+
+Never put tokens, passwords, cookies, customer names, e-mails or phone numbers
+in a request (use `<redacted>`): the tool and the coordinator reject them, and
+issues are public. Without write credentials, `submit` keeps the request,
+writes the issue text next to it and prints a prefilled link — it reports
+`NOT_SUBMITTED` (exit 5), never a fake success. You can also use the "API gap"
+issue form on GitHub.
+
+When `status` reports **CONTRACT_PUBLISHED**, upgrade explicitly
+(`capitalix_contract.py update --version <version>`), run your checks and tests,
+then `python3 tool/capitalix_gap.py confirm <issue> --tests-passed`. Nothing
+upgrades your pin for you. The full lifecycle is in
+[API_GAP_WORKFLOW.md](API_GAP_WORKFLOW.md).
+
+For a whole requirements document, `capitalix_contract.py gap requirements.md`
+produces a requirements-to-contract report (the owner-app report is
+`api/requirements/GAP_REPORT.md`).
 
 ## Consumer CI (no secrets needed)
 

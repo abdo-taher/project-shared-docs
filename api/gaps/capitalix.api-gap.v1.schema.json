@@ -1,0 +1,302 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/abdo-taher/project-shared-docs/HEAD/api/gaps/capitalix.api-gap.v1.schema.json",
+  "title": "Capitalix API gap request (capitalix.api-gap.v1)",
+  "description": "Documentation and editor support. The authoritative validator is tools/capitalix_gap_core.py (also used by the backend coordinator); it additionally rejects secrets and personal data and checks the request against the published contract.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "request_id",
+    "consumer",
+    "feature",
+    "actor",
+    "gap_type",
+    "contract",
+    "expected",
+    "actual",
+    "acceptance_criteria",
+    "submitted_at"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "capitalix.api-gap.v1"
+    },
+    "request_id": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9-]{7,63}$"
+    },
+    "consumer": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "project",
+        "platform"
+      ],
+      "properties": {
+        "project": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._/-]{0,99}$"
+        },
+        "platform": {
+          "enum": [
+            "flutter",
+            "react",
+            "nextjs",
+            "vue",
+            "angular",
+            "web",
+            "ios",
+            "android",
+            "other"
+          ]
+        }
+      }
+    },
+    "feature": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 120
+    },
+    "actor": {
+      "enum": [
+        "owner",
+        "accountant",
+        "admin",
+        "auth",
+        "public"
+      ]
+    },
+    "capability_id": {
+      "type": "string",
+      "pattern": "^CAP-[A-Z]{2,6}-\\d{3}$"
+    },
+    "gap_type": {
+      "enum": [
+        "MISSING_OPERATION",
+        "REQUEST_MISMATCH",
+        "RESPONSE_MISMATCH",
+        "AUTH_MISMATCH",
+        "VALIDATION_MISMATCH",
+        "PAGINATION_MISMATCH",
+        "BUSINESS_RULE_GAP",
+        "CONTRACT_DOCUMENTATION_DEFECT"
+      ]
+    },
+    "operation": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "operation_id": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$"
+        },
+        "method": {
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/api/[A-Za-z0-9_{}./-]{1,300}$"
+        }
+      },
+      "description": "The existing operation (not allowed for MISSING_OPERATION)."
+    },
+    "proposed": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "method": {
+          "enum": [
+            "GET",
+            "POST",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "pattern": "^/api/[A-Za-z0-9_{}./-]{1,300}$"
+        }
+      },
+      "description": "MISSING_OPERATION only: a suggestion, never part of the gap identity."
+    },
+    "location": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.\\[\\]{}:/-]{1,200}$"
+    },
+    "contract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version",
+        "sha256"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "pattern": "^\\d{4}\\.\\d{2}\\.\\d{2}-[0-9a-f]{12}$"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "expected": {
+      "type": "string",
+      "minLength": 10,
+      "maxLength": 4000
+    },
+    "actual": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 4000
+    },
+    "evidence": {
+      "type": "array",
+      "maxItems": 5,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "kind",
+          "content"
+        ],
+        "properties": {
+          "kind": {
+            "enum": [
+              "request",
+              "response",
+              "log",
+              "note"
+            ]
+          },
+          "content": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 8000
+          }
+        }
+      }
+    },
+    "requirements": {
+      "type": "array",
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      }
+    },
+    "acceptance_criteria": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 20,
+      "items": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 500
+      }
+    },
+    "severity": {
+      "enum": [
+        "low",
+        "medium",
+        "high",
+        "critical"
+      ],
+      "description": "A suggestion; never an authorization or priority decision."
+    },
+    "submitted_at": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "gap_type": {
+            "const": "MISSING_OPERATION"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "capability_id",
+          "location"
+        ],
+        "not": {
+          "required": [
+            "operation"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "gap_type": {
+            "enum": [
+              "AUTH_MISMATCH",
+              "CONTRACT_DOCUMENTATION_DEFECT",
+              "PAGINATION_MISMATCH",
+              "REQUEST_MISMATCH",
+              "RESPONSE_MISMATCH",
+              "VALIDATION_MISMATCH"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "operation"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "gap_type": {
+            "const": "BUSINESS_RULE_GAP"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "capability_id"
+        ]
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "gap_type": {
+            "enum": [
+              "CONTRACT_DOCUMENTATION_DEFECT",
+              "MISSING_OPERATION",
+              "PAGINATION_MISMATCH",
+              "REQUEST_MISMATCH",
+              "RESPONSE_MISMATCH",
+              "VALIDATION_MISMATCH"
+            ]
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "location"
+        ]
+      }
+    }
+  ]
+}

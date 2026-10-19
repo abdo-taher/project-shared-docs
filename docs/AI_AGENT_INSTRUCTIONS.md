@@ -57,3 +57,19 @@ Never during ordinary feature work:
 
 `python3 tool/capitalix_contract.py status` may be run to report whether a
 newer approved version exists; report it, do not apply it.
+
+### When the contract lacks what the task needs
+
+1. Confirm with `inspect` that it is really absent or different.
+2. Create a structured request — never a free-text guess:
+   `python3 tool/capitalix_gap.py new --type <TYPE> --actor <actor> ...`
+   (types and fields: `docs/DEVELOPER_QUICKSTART.md` section 5). For a missing
+   operation use `--capability` and `--location`; never invent a path.
+3. `python3 tool/capitalix_gap.py search <file>`; if it is already reported,
+   cite that issue instead of filing again.
+4. Submit only if your task or your user allows filing issues; otherwise leave
+   the request file and report it. If `submit` says `NOT_SUBMITTED`, say so —
+   never claim it was filed.
+5. Evidence must be sanitized: no tokens, cookies, passwords, personal data.
+6. Do not upgrade the pin to pick up a fix during unrelated work; `status
+   <issue>` reports when a fix is published, and upgrading is its own task.

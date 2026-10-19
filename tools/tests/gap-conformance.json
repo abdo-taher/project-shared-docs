@@ -1,0 +1,676 @@
+{
+ "schema": "capitalix.api-gap-conformance.v1",
+ "core_version": "1.0.0",
+ "core_sha256": "b5658e2df314c879f0f6d6e03f00e3ab2d8ffa48ae7cb36f8a4c89d0013e08a7",
+ "cases": [
+  {
+   "name": "missing operation (flutter)",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "capability_id": "CAP-OWN-180",
+    "gap_type": "MISSING_OPERATION",
+    "location": "customers.list",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z"
+   },
+   "valid": true,
+   "fingerprint": "14529f2c90a31df4b331aee1d7b2f2e2fee1cf034dd4f1d01f2666220b2b7320"
+  },
+  {
+   "name": "missing operation (react, other version, same gap)",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-react-0000001",
+    "consumer": {
+     "project": "web",
+     "platform": "react"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "capability_id": "CAP-OWN-180",
+    "gap_type": "MISSING_OPERATION",
+    "location": "Customers.List",
+    "contract": {
+     "version": "2026.11.01-0123456789ab",
+     "sha256": "1111111111111111111111111111111111111111111111111111111111111111"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z"
+   },
+   "valid": true,
+   "fingerprint": "14529f2c90a31df4b331aee1d7b2f2e2fee1cf034dd4f1d01f2666220b2b7320"
+  },
+  {
+   "name": "response mismatch by operation id",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "gap_type": "RESPONSE_MISMATCH",
+    "location": "data.items[0].phone",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z",
+    "operation": {
+     "operation_id": "owner.sales.customers.show"
+    }
+   },
+   "valid": true,
+   "fingerprint": "8629ea7ea11e54e8dd37f8900bb536e78ca00f57b536f4424c7c87b6660eec60"
+  },
+  {
+   "name": "response mismatch by method and path",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "gap_type": "RESPONSE_MISMATCH",
+    "location": "data.items[].phone",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z",
+    "operation": {
+     "method": "GET",
+     "path": "/api/owner/sales/customers/{customer}"
+    }
+   },
+   "valid": true,
+   "fingerprint": "ada5a29147417f86c2e52fae5e64b11c58bdbb47928ce93bbb19e381bcb75eeb"
+  },
+  {
+   "name": "auth mismatch without location",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "gap_type": "AUTH_MISMATCH",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z",
+    "operation": {
+     "operation_id": "owner.sales.customers.show"
+    }
+   },
+   "valid": true,
+   "fingerprint": "27dd2cd48672bac326ca7a8758b7f8267f4b96ef9802ab331851bafa526ae0f9"
+  },
+  {
+   "name": "business rule gap",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "capability_id": "CAP-OWN-180",
+    "gap_type": "BUSINESS_RULE_GAP",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z"
+   },
+   "valid": true,
+   "fingerprint": "9e8a2e15361edd877c4bf1d83ffa94a506b183883b91a20876c38c0e02925bb4"
+  },
+  {
+   "name": "unsupported schema version",
+   "request": {
+    "schema_version": "capitalix.api-gap.v2",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "capability_id": "CAP-OWN-180",
+    "gap_type": "MISSING_OPERATION",
+    "location": "customers.list",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z"
+   },
+   "valid": false,
+   "first_error": "schema_version"
+  },
+  {
+   "name": "missing required field",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "capability_id": "CAP-OWN-180",
+    "gap_type": "MISSING_OPERATION",
+    "location": "customers.list",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z"
+   },
+   "valid": false,
+   "first_error": "expected"
+  },
+  {
+   "name": "unknown field",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "capability_id": "CAP-OWN-180",
+    "gap_type": "MISSING_OPERATION",
+    "location": "customers.list",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z",
+    "status": "RESOLVED"
+   },
+   "valid": false,
+   "first_error": "unknown fields"
+  },
+  {
+   "name": "unsupported actor",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "root",
+    "capability_id": "CAP-OWN-180",
+    "gap_type": "MISSING_OPERATION",
+    "location": "customers.list",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z"
+   },
+   "valid": false,
+   "first_error": "actor"
+  },
+  {
+   "name": "missing operation with an operation",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "capability_id": "CAP-OWN-180",
+    "gap_type": "MISSING_OPERATION",
+    "location": "customers.list",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z",
+    "operation": {
+     "operation_id": "x.y"
+    }
+   },
+   "valid": false,
+   "first_error": "operation"
+  },
+  {
+   "name": "missing operation without capability",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "gap_type": "MISSING_OPERATION",
+    "location": "customers.list",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z"
+   },
+   "valid": false,
+   "first_error": "capability_id"
+  },
+  {
+   "name": "mismatch without operation",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "gap_type": "REQUEST_MISMATCH",
+    "location": "customers.list",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z"
+   },
+   "valid": false,
+   "first_error": "operation"
+  },
+  {
+   "name": "bad contract sha",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "capability_id": "CAP-OWN-180",
+    "gap_type": "MISSING_OPERATION",
+    "location": "customers.list",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "XYZ"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z"
+   },
+   "valid": false,
+   "first_error": "contract.sha256"
+  },
+  {
+   "name": "secret in evidence",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "capability_id": "CAP-OWN-180",
+    "gap_type": "MISSING_OPERATION",
+    "location": "customers.list",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "request",
+      "content": "Authorization: Bearer 12|abcdefABCDEF1234567"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z"
+   },
+   "valid": false,
+   "first_error": "evidence[0]"
+  },
+  {
+   "name": "personal email in actual",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "capability_id": "CAP-OWN-180",
+    "gap_type": "MISSING_OPERATION",
+    "location": "customers.list",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "Customer omar@gmail.com is not returned.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "high",
+    "submitted_at": "2026-10-19T10:00:00Z"
+   },
+   "valid": false,
+   "first_error": "actual"
+  },
+  {
+   "name": "severity is only a suggestion value",
+   "request": {
+    "schema_version": "capitalix.api-gap.v1",
+    "request_id": "gap-0000000000000001",
+    "consumer": {
+     "project": "capitalix-owner-app",
+     "platform": "flutter"
+    },
+    "feature": "Customers list screen",
+    "actor": "owner",
+    "capability_id": "CAP-OWN-180",
+    "gap_type": "MISSING_OPERATION",
+    "location": "customers.list",
+    "contract": {
+     "version": "2026.10.18-06d388692794",
+     "sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c"
+    },
+    "expected": "A paginated list of the owner's customers with name and id.",
+    "actual": "The contract has no list operation for owner customers.",
+    "evidence": [
+     {
+      "kind": "note",
+      "content": "inspect customers --method GET owner returns nothing"
+     }
+    ],
+    "requirements": [
+     "BACKEND_API.md#7 Customers"
+    ],
+    "acceptance_criteria": [
+     "GET list returns data.items[] with id and name",
+     "data.meta.total present"
+    ],
+    "severity": "urgent",
+    "submitted_at": "2026-10-19T10:00:00Z"
+   },
+   "valid": false,
+   "first_error": "severity"
+  }
+ ]
+}

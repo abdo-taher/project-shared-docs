@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: API gap workflow
+    url: https://github.com/abdo-taher/project-shared-docs/blob/main/docs/API_GAP_WORKFLOW.md
+    about: How API gap requests are validated, linked to backend work and resolved.
