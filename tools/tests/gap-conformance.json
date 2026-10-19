@@ -1,7 +1,7 @@
 {
  "schema": "capitalix.api-gap-conformance.v1",
  "core_version": "1.0.0",
- "core_sha256": "99e6e29d4a62b5ef23f2eac5ee281b9467a2bb8d8af70ad4c3429978e65d1579",
+ "core_sha256": "b5658e2df314c879f0f6d6e03f00e3ab2d8ffa48ae7cb36f8a4c89d0013e08a7",
  "cases": [
   {
    "name": "missing operation (flutter)",
