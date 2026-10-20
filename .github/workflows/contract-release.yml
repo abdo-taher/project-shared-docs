@@ -1,0 +1,63 @@
+name: contract-release
+
+# GitHub-side release listener. Every ten minutes (or on demand) it looks at the backend development branch and, when
+# there is a commit that has not been built, runs the cycle: contract-build -> contract-publish (which waits for the
+# owner's deployment approval) -> publication pull request (the owner's merge is the approval).
+# It never approves, merges, pushes to main, or accepts breaking/unclassified changes (the publisher is dispatched
+# without allow_breaking / allow_unknown). Every step that needs the owner is posted with its link to the issue labelled
+# `contract-release`. Disabled unless BOTH repository variables are 'true'.
+on:
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Release the branch head even if it was built before"
+        required: false
+        default: "false"
+  schedule:
+    - cron: "*/10 * * * *"
+
+permissions:
+  contents: read
+  actions: write   # dispatch contract-publish
+  issues: write    # the status issue
+  pull-requests: read
+
+concurrency:
+  group: contract-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: ${{ vars.API_CONTRACT_AUTO_RELEASE == 'true' && vars.API_CONTRACT_PUBLICATION_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    environment: contract-release
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: main
+          persist-credentials: false
+      # One-hour token limited to the backend repository: start the build and read its runs.
+      - name: Token for the backend repository (dispatch contract-build, read runs)
+        id: backend
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.API_GAP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.API_GAP_APP_PRIVATE_KEY }}
+          owner: abdo-taher
+          repositories: capitalix
+          permission-actions: write
+          permission-contents: read
+          permission-metadata: read
+      - name: Release the next backend commit, if there is one
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BACKEND_GH_TOKEN: ${{ steps.backend.outputs.token }}
+          FORCE: ${{ inputs.force }}
+        run: |
+          set -eu
+          if [ "${FORCE:-false}" = "true" ]; then
+            python3 tools/publish/release_orchestrator.py tick --force
+          else
+            python3 tools/publish/release_orchestrator.py tick
+          fi

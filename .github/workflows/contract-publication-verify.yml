@@ -15,6 +15,7 @@ on:
 permissions:
   contents: read
   pull-requests: read
+  issues: write   # the 'published' status comment (GITHUB_TOKEN)
 
 jobs:
   verify:
@@ -49,3 +50,14 @@ jobs:
             exit 0
           fi
           python3 tools/publish/capitalix_publish.py verify-merge --repo "$GITHUB_REPOSITORY" --sha "$SHA"
+      - name: Tell the owner the contract is published
+        if: ${{ github.event_name == 'push' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -eu
+          changed="$(git diff --name-only "$SHA^" "$SHA" -- api/implemented/versions api/implemented/current.json api/implemented/index.json)"
+          [ -n "$changed" ] || exit 0
+          version="$(python3 -c "import json;print(json.load(open('api/implemented/current.json'))['version'])")"
+          python3 tools/publish/release_orchestrator.py notify "**Published: \`$version\`** (merge $SHA, verified). Front ends upgrade with \`python3 tools/capitalix_contract.py update\`, re-run their tests and confirm the gap." || true
