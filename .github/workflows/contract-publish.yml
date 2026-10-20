@@ -83,7 +83,7 @@ jobs:
           INPUT_UNKNOWN: ${{ inputs.allow_unknown }}
           INPUT_SCOPE: ${{ inputs.scope }}
         run: |
-          set -eu
+          set -euo pipefail
           args=""
           if [ "$INPUT_BREAKING" = "true" ]; then args="$args --allow-breaking"; fi
           if [ "$INPUT_UNKNOWN" = "true" ]; then args="$args --allow-unknown"; fi
@@ -92,6 +92,7 @@ jobs:
             --build-record build-input/build-record.json --commit-date "$(cat build-input/commit-date.txt)" \
             --shared-repo . $args ${INPUT_SCOPE:+--scope "$INPUT_SCOPE"} | tee prepare.log
           version="$(sed -n 's/^publish: prepared version //p' prepare.log)"
+          if [ -z "$version" ]; then echo "ERROR: prepare did not produce a version"; exit 1; fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
       - name: Verify the result (integrity, immutability against main, one new version)
         run: python3 tools/publish/capitalix_publish.py verify --shared-repo . --base-ref origin/main --max-new-versions 1
@@ -101,6 +102,7 @@ jobs:
           VERSION: ${{ steps.prepare.outputs.version }}
         run: |
           set -eu
+          if [ -z "$VERSION" ]; then echo "ERROR: no version to publish"; exit 1; fi
           git config user.name "api-gap-automation[bot]"
           git config user.email "api-gap-automation[bot]@users.noreply.github.com"
           branch="publish/$VERSION"
