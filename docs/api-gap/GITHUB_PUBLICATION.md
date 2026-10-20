@@ -81,6 +81,22 @@ quality-baseline score gate (`openapi:quality` is not registered in the developm
 
 ## 4. Operating it
 
+### One command
+
+```sh
+python3 tools/publish/capitalix_release.py                      # build, publish PR, wait for the merge
+python3 tools/publish/capitalix_release.py --build-run-id 123   # reuse an existing build
+python3 tools/publish/capitalix_release.py --allow-unknown --scope "why"   # owner decisions, recorded in approval.json
+```
+
+It runs the steps below through your own `gh` login, prints a link whenever a person has to act (approve the
+`contract-publisher` deployment; review and merge the publication PR) and keeps waiting. It never approves or merges,
+switches `API_CONTRACT_PUBLICATION_ENABLED` on only for the run and restores the previous value on exit, and prints the
+reason from the run log if a gate refuses (exit 3). Exit codes: 0 published, 2 `gh` error, 3 a workflow failed or refused,
+4 timeout, 5 PR closed unmerged. Tests: `tools/tests/test_capitalix_release.py`.
+
+The manual steps it automates:
+
 ```sh
 # 1. in capitalix: Actions → contract-build → Run workflow on integration/E01-FOUNDATION-SAAS; note the run id
 gh workflow run contract-build.yml -R abdo-taher/capitalix --ref integration/E01-FOUNDATION-SAAS
