@@ -66,6 +66,7 @@ class PublishWorkflowTests(unittest.TestCase):
         self.assertRegex(body, r"(?m)^permissions:\n  contents: read\n  pull-requests: read\n")
         self.assertIn("pull_request:", body)
         self.assertIn("verify-merge", body)
+        self.assertIn("api/implemented/versions api/implemented/current.json api/implemented/index.json", body)
         self.assertIn("--max-new-versions 1", body)
         self.assertIn('"origin/$BASE_REF"', body)
 
