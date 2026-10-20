@@ -59,7 +59,7 @@ Upgrade path: where attestations become available, add `actions/attest-build-pro
 | Gate | Now |
 |---|---|
 | deterministic generation | generate twice, `cmp` |
-| route coverage / validity | `openapi:coverage`, OpenAPI feature + unit test suites |
+| route coverage / validity | `openapi:coverage`, OpenAPI unit suite + the generation and UI-access feature tests (the coverage-gate feature test duplicates `openapi:coverage` and hangs in CI, so it is not run) |
 | compatibility classification | the same classifier (`tools/publish/openapi_compatibility.py`, 14 tests); **BREAKING and UNKNOWN fail closed** unless the owner sets `allow_breaking` / `allow_unknown` and a scope, which is recorded in `approval.json` and re-checked by `verify` |
 | immutable versions, no rollback, no stale publication, no duplicates | `prepare` refuses them |
 | approval of the exact bytes | `approval.json` pins the sha256; owner's PR review |
