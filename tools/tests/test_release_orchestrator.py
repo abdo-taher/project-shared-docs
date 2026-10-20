@@ -11,6 +11,7 @@ class FakeGh:
     def __init__(self, head="H2", open_prs=(), publishes=(), builds=(), build_result="success", issue=True):
         self.head, self.open_prs, self.publishes, self.builds = head, list(open_prs), list(publishes), list(builds)
         self.build_result, self.issue, self.calls, self.comments, self.next_id = build_result, issue, [], [], 500
+        self.issue_numbers = [9]
 
     def __call__(self, a):
         self.calls.append(a)
@@ -33,7 +34,7 @@ class FakeGh:
             run = next(r for r in self.builds if str(r["databaseId"]) == a[2])
             return json.dumps({"status": run["status"], "conclusion": run["conclusion"], "url": run["url"]})
         if a[:2] == ["issue", "list"]:
-            return json.dumps([{"number": 9}] if self.issue else [])
+            return json.dumps([{"number": n} for n in self.issue_numbers] if self.issue else [])
         if a[:2] == ["label", "create"]:
             return ""
         if a[:2] == ["issue", "create"]:
@@ -110,6 +111,19 @@ class TickTests(unittest.TestCase):
         orch(gh).notify("again")
         self.assertEqual(sum(1 for c in gh.calls if c[:2] == ["issue", "create"]), 1)
         self.assertEqual(gh.comments, ["hello", "again"])
+
+    def test_status_issue_exists_after_a_pass_that_does_nothing(self):
+        gh = FakeGh(head="H1", issue=False, builds=[{"databaseId": 1, "headSha": "H1", "status": "completed",
+                                                      "conclusion": "success", "url": "u"}])
+        self.assertEqual(orch(gh).tick(), "up-to-date")
+        self.assertEqual(sum(1 for c in gh.calls if c[:2] == ["issue", "create"]), 1)
+        self.assertEqual(gh.comments, [])
+
+    def test_with_duplicate_status_issues_the_oldest_is_used(self):
+        gh = FakeGh()
+        gh.issue_numbers = [14, 9, 12]
+        orch(gh).notify("hello")
+        self.assertEqual(next(c for c in gh.calls if c[:2] == ["issue", "comment"])[2], "9")
 
     def test_never_merges_approves_or_pushes(self):
         gh = FakeGh()

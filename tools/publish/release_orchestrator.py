@@ -63,19 +63,21 @@ class Orchestrator:
         return json.loads(out) if out.strip() else None
 
     # -- the status issue --------------------------------------------------------------------------------------
-    def notify(self, text: str) -> None:
+    def status_issue(self) -> str:
+        """Number of the one status issue; created if missing. With duplicates the oldest is used."""
         rows = self.json(["issue", "list", "-R", SHARED_REPO, "--label", STATUS_LABEL, "--state", "open",
                           "--json", "number"]) or []
         if rows:
-            number = str(rows[0]["number"])
-        else:
-            self.gh(["label", "create", STATUS_LABEL, "-R", SHARED_REPO, "--force",
-                     "--description", "Contract release status (written by automation)"])
-            url = self.gh(["issue", "create", "-R", SHARED_REPO, "--title", STATUS_TITLE, "--label", STATUS_LABEL,
-                           "--body", "Every step of the automatic contract release that needs you, or finishes, is "
-                                     "posted here with its link. Subscribe to this issue to be notified."]).strip()
-            number = url.rsplit("/", 1)[-1]
-        self.gh(["issue", "comment", number, "-R", SHARED_REPO, "--body", text])
+            return str(min(r["number"] for r in rows))
+        self.gh(["label", "create", STATUS_LABEL, "-R", SHARED_REPO, "--force",
+                 "--description", "Contract release status (written by automation)"])
+        url = self.gh(["issue", "create", "-R", SHARED_REPO, "--title", STATUS_TITLE, "--label", STATUS_LABEL,
+                       "--body", "Every step of the automatic contract release that needs you, or finishes, is "
+                                 "posted here with its link. Subscribe to this issue to be notified."]).strip()
+        return url.rsplit("/", 1)[-1]
+
+    def notify(self, text: str) -> None:
+        self.gh(["issue", "comment", self.status_issue(), "-R", SHARED_REPO, "--body", text])
         self.say(f"notified: {text.splitlines()[0]}")
 
     # -- one pass ----------------------------------------------------------------------------------------------
@@ -96,6 +98,7 @@ class Orchestrator:
                 self.json(["run", "list", "-R", repo, "--workflow", workflow, "-L", "30", "--json", "databaseId"]) or []}
 
     def tick(self, force: bool = False) -> str:
+        self.status_issue()   # exists from the first pass on, so the owner can subscribe before the first action
         head = self.gh(["api", f"repos/{BACKEND_REPO}/commits/{BRANCH}", "--jq", ".sha"]).strip()
 
         open_prs = self.json(["pr", "list", "-R", SHARED_REPO, "--state", "open", "--search", "publish contract in:title",
