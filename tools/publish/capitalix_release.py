@@ -9,6 +9,10 @@ publisher with that run id, then wait. Wherever a person must act it prints the 
   * approving the deployment of environment `contract-publisher`  (a run link)
   * reviewing and merging the publication pull request             (a PR link)
 
+With --watch it keeps listening: it records the current head of the backend branch, and every later push starts the
+whole cycle again (after the pushes settle, and never while a publication PR is still open). A cycle that fails or is
+refused is reported and the command goes on listening for the next push; the same commit is never retried.
+
 It never approves or merges anything. The publication flag is switched on for the duration and restored on exit
 (also on failure or Ctrl-C). The publisher's own gates (compatibility, provenance, immutability) are unchanged:
 if one of them refuses, the reason from the run log is printed and the command exits non-zero.
@@ -51,6 +55,7 @@ class Release:
         self.gh, self.sleep, self.now, self.say = gh, sleep, now, say
         self.poll, self.deadline_s = poll, timeout_minutes * 60
         self.started = now()
+        self.built_sha = None
 
     # -- helpers -----------------------------------------------------------------------------------------------
     def json(self, args: list[str]):
@@ -106,7 +111,7 @@ class Release:
         seen = {}
 
         def probe():
-            row = self.json(["run", "view", str(run_id), "-R", repo, "--json", "status,conclusion,url"])
+            row = self.json(["run", "view", str(run_id), "-R", repo, "--json", "status,conclusion,url,headSha"])
             seen["status"] = row["status"]
             return row if row["status"] in DONE else None
 
@@ -122,6 +127,8 @@ class Release:
         if row["conclusion"] != "success":
             raise Stop(f"{label} ended '{row['conclusion']}'.\n  Why:\n    {self.reason(repo, run_id)}\n  {run['url']}", 3)
         self.say(f"  {label}: success")
+        if repo == BACKEND_REPO:
+            self.built_sha = row.get("headSha")
         return row
 
     def find_pr(self, since_ids: set[int]) -> dict:
@@ -141,8 +148,57 @@ class Release:
         raw = self.json(["api", f"repos/{SHARED_REPO}/contents/api/implemented/current.json"])
         return json.loads(base64.b64decode(raw["content"]))["version"]
 
+    # -- listening mode ----------------------------------------------------------------------------------------
+    def head(self, ref: str) -> str:
+        return self.gh(["api", f"repos/{BACKEND_REPO}/commits/{ref}", "--jq", ".sha"]).strip()
+
+    def open_publications(self) -> list[dict]:
+        return self.json(["pr", "list", "-R", SHARED_REPO, "--state", "open", "--search", "publish contract in:title",
+                          "--json", "number,url,headRefName"]) or []
+
+    def settle(self, ref: str, sha: str, seconds: int) -> str:
+        quiet_since = self.now()
+        while self.now() - quiet_since < seconds:
+            self.sleep(self.poll)
+            latest = self.head(ref)
+            if latest != sha:
+                sha, quiet_since = latest, self.now()
+        return sha
+
+    def watch(self, args, max_cycles: int | None = None) -> int:
+        seen = None if args.now else self.head(args.ref)
+        self.say(f"Listening for pushes to {BACKEND_REPO}@{args.ref} "
+                 f"(starting from {seen[:12] if seen else 'the current head: building now'}). Ctrl-C to stop.")
+        cycles = 0
+        try:
+            while max_cycles is None or cycles < max_cycles:
+                try:
+                    sha = self.head(args.ref)
+                    if sha == seen:
+                        self.sleep(self.poll)
+                        continue
+                    sha = self.settle(args.ref, sha, args.settle)
+                    open_prs = self.open_publications()
+                    if open_prs:
+                        self.say(f"\n  A publication PR is still open — merge or close it first:\n    {open_prs[0]['url']}\n    (waiting...)")
+                        self.started = self.now()
+                        self.wait_for("the open publication PR to be merged or closed", lambda: not self.open_publications())
+                    self.say(f"\n=== Push detected: {sha[:12]} — starting the release cycle ===")
+                    code = self.execute(args)
+                    cycles += 1
+                    seen = self.built_sha or sha
+                    self.say(f"\nCycle finished (exit {code}). Listening again...")
+                except Stop as stop:
+                    self.say(f"\nSTOPPED: {stop}. Listening again...")
+                    self.sleep(self.poll)
+        except KeyboardInterrupt:
+            self.say("\nStopped listening. Nothing is published or merged by this command.")
+            return 130
+        return 0
+
     # -- the cycle ---------------------------------------------------------------------------------------------
     def execute(self, args) -> int:
+        self.started, self.built_sha = self.now(), None
         previous = None
         try:
             previous = (self.gh(["variable", "get", FLAG, "-R", SHARED_REPO]).strip() or "false")
@@ -169,6 +225,7 @@ class Release:
         if args.build_run_id:
             build_id = args.build_run_id
             self.say(f"\n[1/3] Using existing build run {build_id}")
+            self.built_sha = self.json(["run", "view", str(build_id), "-R", BACKEND_REPO, "--json", "headSha"])["headSha"]
         else:
             self.say(f"\n[1/3] Build the contract ({BACKEND_REPO}@{args.ref})")
             run = self.dispatch(BACKEND_REPO, BUILD_WORKFLOW, {}, ref=args.ref)
@@ -210,12 +267,20 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--allow-breaking", action="store_true", help="owner decision: accept BREAKING changes (recorded)")
     ap.add_argument("--allow-unknown", action="store_true", help="owner decision: accept unclassified changes (recorded)")
     ap.add_argument("--scope", default="", help="text naming the accepted changes (recorded in the approval)")
+    ap.add_argument("--watch", action="store_true", help="keep listening: run the whole cycle after every new push")
+    ap.add_argument("--now", action="store_true", help="with --watch: build the current head first instead of waiting for a push")
+    ap.add_argument("--settle", type=int, default=60, help="with --watch: seconds without a new push before building")
     ap.add_argument("--poll", type=int, default=10, help="seconds between status checks")
     ap.add_argument("--timeout-minutes", type=int, default=120, help="give up waiting after this long")
     args = ap.parse_args(argv)
     if args.build_run_id and not args.build_run_id.isdigit():
         ap.error("--build-run-id must be digits")
-    return Release(poll=args.poll, timeout_minutes=args.timeout_minutes).execute(args)
+    release = Release(poll=args.poll, timeout_minutes=args.timeout_minutes)
+    if args.watch:
+        if args.build_run_id:
+            ap.error("--watch builds every push itself; do not combine with --build-run-id")
+        return release.watch(args)
+    return release.execute(args)
 
 
 if __name__ == "__main__":

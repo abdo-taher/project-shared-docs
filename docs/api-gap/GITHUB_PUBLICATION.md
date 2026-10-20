@@ -95,6 +95,19 @@ switches `API_CONTRACT_PUBLICATION_ENABLED` on only for the run and restores the
 reason from the run log if a gate refuses (exit 3). Exit codes: 0 published, 2 `gh` error, 3 a workflow failed or refused,
 4 timeout, 5 PR closed unmerged. Tests: `tools/tests/test_capitalix_release.py`.
 
+To keep listening and run the cycle after every push to the backend branch:
+
+```sh
+python3 tools/publish/capitalix_release.py --watch            # starts from the current head; only later pushes build
+python3 tools/publish/capitalix_release.py --watch --now      # also builds the current head first
+```
+
+Pushes are batched (`--settle`, default 60 s without a new push). It does not start while a publication PR is still open,
+a failed or refused commit is reported and not retried, and it goes on listening. Run it in a terminal you keep open,
+or with the Claude Code command `/release-contract` (it relays each link as it appears). It watches the development
+branch (`integration/E01-FOUNDATION-SAAS`), not `main`: provenance requires the build to come from that branch, and
+`main` of the backend only carries the workflow file. Use `--ref` to watch another branch.
+
 The manual steps it automates:
 
 ```sh
