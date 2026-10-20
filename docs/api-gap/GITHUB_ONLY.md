@@ -53,17 +53,17 @@ guard, rate limit), evidence vocabulary and negative control.
 | Credentials | `API_GAP_GITHUB_TOKEN` (intake issues), `API_GAP_BACKEND_TOKEN` (backend issues/PRs read), `API_GAP_DISPATCH_TOKEN` (worker host only). Preflight checks them; the broad personal `gh` login is flagged. |
 | Removed | GitLab client, GitLab forge, tree-promotion tool, promotion audit, GitLab CI jobs, production-pipeline evidence. |
 
-## Boundary: publication
+## Publication
 
-The official contract in `api/implemented/` is produced by infrastructure that is **not on GitHub** (the
-manifest names its source commit in another system). This automation does not contact it, replace it or bypass it.
-Consequences, stated plainly:
+Publication is now GitHub-only in design and code ([GITHUB_PUBLICATION.md](GITHUB_PUBLICATION.md)): `contract-build`
+(capitalix) → `contract-publish` (opens a PR) → the owner's review/merge → `contract-publication-verify`. It is
+**implemented and tested but not cut over**: the legacy publisher still exists until its deploy key is removed, and no
+GitHub publication has happened. Until then:
 
-- A gap is `CONTRACT_PUBLISHED` only when the **published contract content** satisfies the evidence checks.
-  Build provenance of that contract (which commit it came from) is **not verifiable from GitHub** and is recorded as
-  `publication_proof: contract-evidence`; the consumer notice says so.
-- Until an approved contract containing the fix is published, the state stays `IN_PROGRESS / MERGED_NOT_PUBLISHED`.
-- A GitHub-only publisher would need its own reviewed implementation and owner approval. It is **not** built here.
+- a gap is `CONTRACT_PUBLISHED` only when the **currently published, digest-verified contract** satisfies the evidence
+  checks and — for contracts published by the GitHub publisher — its build commit descends from the merge commit of the fix
+  (`publication_proof: github-build-provenance`); the legacy contract keeps the weaker content-based proof;
+- otherwise the state stays `IN_PROGRESS / MERGED_NOT_PUBLISHED` and is never reported as resolved.
 
 ## Safety properties (tested)
 

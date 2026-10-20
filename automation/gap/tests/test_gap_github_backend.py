@@ -132,6 +132,16 @@ class BackendTests(unittest.TestCase):
         self.assertIn("raw", accept)
         self.assertIsNone(be.file_at("docs/missing.json", "c" * 40))
 
+    def test_is_ancestor_uses_the_compare_api_and_fails_closed(self):
+        be = self.backend({("GET", f"repos/{REPO}/compare/aaa...bbb"): (200, {"status": "ahead"}),
+                           ("GET", f"repos/{REPO}/compare/ccc...bbb"): (200, {"status": "diverged"}),
+                           ("GET", f"repos/{REPO}/compare/ddd...bbb"): (200, {"status": "behind"})})
+        self.assertTrue(be.is_ancestor("aaa", "bbb"))
+        self.assertTrue(be.is_ancestor("x", "x"))
+        self.assertFalse(be.is_ancestor("ccc", "bbb"))
+        self.assertFalse(be.is_ancestor("ddd", "bbb"))
+        self.assertFalse(be.is_ancestor("zzz", "bbb"), "unknown commit (404) is not an ancestor")
+
     def test_create_issue_sends_labels_and_body_and_returns_normalized(self):
         be = self.backend({("POST", f"repos/{REPO}/issues"): (201, self.issue(8, "desc", ["api-gap"]))})
         created = be.create_issue("T", "desc", ["api-gap", "gap::accepted"])

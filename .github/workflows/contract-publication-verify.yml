@@ -1,0 +1,43 @@
+name: contract-publication-verify
+
+# Required check for every change to api/implemented/. Read-only and secret-free.
+on:
+  pull_request:
+    paths:
+      - "api/implemented/**"
+      - "tools/publish/**"
+      - ".github/workflows/contract-publish*.yml"
+  push:
+    branches: [main]
+    paths:
+      - "api/implemented/**"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      - name: Published tree is sound; earlier versions untouched; at most one new version
+        if: ${{ github.event_name == 'pull_request' }}
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: python3 tools/publish/capitalix_publish.py verify --shared-repo . --base-ref "origin/$BASE_REF" --max-new-versions 1
+      - name: Published tree is sound
+        if: ${{ github.event_name == 'push' }}
+        run: python3 tools/publish/capitalix_publish.py verify --shared-repo .
+      - name: Only an approved publisher pull request may change api/implemented on main
+        if: ${{ github.event_name == 'push' }}
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          SHA: ${{ github.sha }}
+        run: python3 tools/publish/capitalix_publish.py verify-merge --repo "$GITHUB_REPOSITORY" --sha "$SHA"

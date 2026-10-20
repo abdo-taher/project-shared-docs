@@ -228,8 +228,11 @@ def resolve_version(source: str, version: str) -> tuple[dict, bytes, bytes]:
 def verify_approval_evidence(manifest: dict, approval_bytes: bytes, digest: str) -> None:
     """The approval manifest must be the one the publisher recorded, approving these bytes.
 
-    The owner's HMAC signature itself is verified by the protected GitLab job; a
-    consumer verifies that the published approval evidence is intact and consistent.
+    Two approval formats exist. v1 (the first publication) carries an HMAC signature that only its
+    publisher could check. v2 (`capitalix-contract-approval/2`) is the GitHub publication: the approval is the
+    owner's review of the publication pull request, enforced by branch protection and the publication-verify
+    check on GitHub, and it names the exact build that produced the bytes. In both cases a consumer verifies
+    that the published approval evidence is intact and consistent with the digest.
     """
     recorded = (manifest.get("approval") or {}).get("approval_manifest_sha256")
     if not recorded or sha256(approval_bytes) != recorded \
@@ -239,8 +242,14 @@ def verify_approval_evidence(manifest: dict, approval_bytes: bytes, digest: str)
         approval = json.loads(approval_bytes)
     except json.JSONDecodeError:
         raise CheckFailed("approval evidence is not valid JSON") from None
-    if approval.get("decision") != "APPROVED" or approval.get("approved_artifact_sha256") != digest \
-            or not approval.get("trusted_approval_signature"):
+    if approval.get("decision") != "APPROVED" or approval.get("approved_artifact_sha256") != digest:
+        raise CheckFailed("approval evidence does not approve this exact contract")
+    if approval.get("schema") == "capitalix-contract-approval/2":
+        build = approval.get("build") or {}
+        if approval.get("approval_method") != "github-pull-request-review" \
+                or not (build.get("repository") and build.get("commit") and build.get("run_id")):
+            raise CheckFailed("approval evidence v2 does not name the GitHub build and review method")
+    elif not approval.get("trusted_approval_signature"):
         raise CheckFailed("approval evidence does not approve this exact contract")
 
 

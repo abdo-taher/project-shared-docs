@@ -1,0 +1,134 @@
+name: contract-publish
+
+# The ONLY publisher of api/implemented/. Manual, owner-reviewed, and it never pushes to main: it verifies one
+# genuine backend build, lays out ONE new immutable version on a `publish/*` branch and opens a pull request.
+# The owner's review of that pull request is the approval (branch protection + contract-publication-verify).
+on:
+  workflow_dispatch:
+    inputs:
+      build_run_id:
+        description: "Run id of the 'contract-build' workflow in abdo-taher/capitalix (digits)"
+        required: true
+      allow_breaking:
+        description: "Owner decision: publish despite BREAKING changes (recorded in the approval)"
+        required: false
+        default: "false"
+      allow_unknown:
+        description: "Owner decision: publish despite unclassified changes (recorded in the approval)"
+        required: false
+        default: "false"
+      scope:
+        description: "Short text naming the accepted breaking/unclassified changes (recorded in the approval)"
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contract-publish
+  cancel-in-progress: false
+
+jobs:
+  propose:
+    if: ${{ vars.API_CONTRACT_PUBLICATION_ENABLED == 'true' }}
+    runs-on: ubuntu-latest
+    environment: contract-publisher
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+      # One GitHub App, two one-hour tokens, each limited to one repository.
+      - name: Token for this repository (branch + pull request, no merge)
+        id: shared
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.API_GAP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.API_GAP_APP_PRIVATE_KEY }}
+          owner: abdo-taher
+          repositories: project-shared-docs
+          permission-contents: write
+          permission-pull-requests: write
+          permission-metadata: read
+      - name: Token for the backend repository (read its build run and artifact)
+        id: backend
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.API_GAP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.API_GAP_APP_PRIVATE_KEY }}
+          owner: abdo-taher
+          repositories: capitalix
+          permission-actions: read
+          permission-contents: read
+          permission-metadata: read
+      - name: Verify the backend build
+        env:
+          PUBLISH_BACKEND_TOKEN: ${{ steps.backend.outputs.token }}
+          INPUT_RUN_ID: ${{ inputs.build_run_id }}
+        run: |
+          set -eu
+          case "$INPUT_RUN_ID" in ''|*[!0-9]*) echo "ERROR: build_run_id must be digits"; exit 3;; esac
+          python3 tools/publish/capitalix_publish.py fetch-build --backend-repo abdo-taher/capitalix \
+            --run-id "$INPUT_RUN_ID" --out build-input
+      - name: Prepare exactly one new version
+        id: prepare
+        env:
+          INPUT_BREAKING: ${{ inputs.allow_breaking }}
+          INPUT_UNKNOWN: ${{ inputs.allow_unknown }}
+          INPUT_SCOPE: ${{ inputs.scope }}
+        run: |
+          set -eu
+          args=""
+          if [ "$INPUT_BREAKING" = "true" ]; then args="$args --allow-breaking"; fi
+          if [ "$INPUT_UNKNOWN" = "true" ]; then args="$args --allow-unknown"; fi
+          # shellcheck disable=SC2086
+          python3 tools/publish/capitalix_publish.py prepare --artifact build-input/openapi.json \
+            --build-record build-input/build-record.json --commit-date "$(cat build-input/commit-date.txt)" \
+            --shared-repo . $args ${INPUT_SCOPE:+--scope "$INPUT_SCOPE"} | tee prepare.log
+          version="$(sed -n 's/^publish: prepared version //p' prepare.log)"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Verify the result (integrity, immutability against main, one new version)
+        run: python3 tools/publish/capitalix_publish.py verify --shared-repo . --base-ref origin/main --max-new-versions 1
+      - name: Open the publication pull request
+        env:
+          GH_TOKEN: ${{ steps.shared.outputs.token }}
+          VERSION: ${{ steps.prepare.outputs.version }}
+        run: |
+          set -eu
+          git config user.name "api-gap-automation[bot]"
+          git config user.email "api-gap-automation[bot]@users.noreply.github.com"
+          branch="publish/$VERSION"
+          if git ls-remote --exit-code --heads origin "$branch" >/dev/null 2>&1; then
+            echo "ERROR: $branch already exists; refusing to overwrite"; exit 1
+          fi
+          git checkout -q -b "$branch"
+          git add api/implemented
+          git commit -q -m "docs(api): publish contract $VERSION"
+          auth="$(printf 'x-access-token:%s' "$GH_TOKEN" | base64 -w0)"
+          git -c "http.https://github.com/.extraheader=AUTHORIZATION: basic $auth" push origin "$branch"
+          python3 - > pr-body.md <<'PY'
+          import json, os
+          v = os.environ["VERSION"]
+          m = json.load(open(f"api/implemented/versions/{v}/manifest.json"))
+          a = json.load(open(f"api/implemented/versions/{v}/approval.json"))
+          c, s = m["compatibility"], m["source"]
+          print(f"## Publish contract `{v}`\n")
+          print(f"- sha256 `{m['sha256']}` ({m['operations']} operations)")
+          print(f"- Built by `{s['repository']}@{s['commit']}` — run {s['build_run_url']}")
+          print(f"- Changes vs the previous version: {c['BREAKING']} breaking, {c['UNKNOWN']} unclassified, "
+                f"{c['NON_BREAKING']} non-breaking, {c['DOCUMENTATION_ONLY']} documentation-only "
+                f"(details: `api/implemented/versions/{v}/compatibility.md`)")
+          print(f"- allow_breaking={a['allow_breaking']} allow_unknown={a['allow_unknown']} scope={a['approved_scope']}")
+          print("\n**Approving and merging this pull request IS the approval to publish.** It was verified before "
+                "opening: the build run, its commit on the development branch, the artifact digest, the "
+                "compatibility classification, immutability of earlier versions. `contract-publication-verify` "
+                "re-checks them.")
+          PY
+          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
+            --title "docs(api): publish contract $VERSION" --body-file pr-body.md

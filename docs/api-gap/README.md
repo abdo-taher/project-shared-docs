@@ -1,8 +1,8 @@
 # API gap workflow — complete cycle, A to Z
 
 How a frontend/mobile consumer reports a missing or wrong API behaviour, how it becomes a backend fix, how the fix
-reaches the official contract, and how "resolved" is proven. Everything below is GitHub-only **except one step, which is
-called out explicitly in section 2: publication of the official contract.**
+reaches the official contract, and how "resolved" is proven. Everything below is GitHub-only in design and code. The one remaining deployment step
+(cutting over from the legacy publisher) is described in section 2 and GITHUB_PUBLICATION.md §6.
 
 Audit date: 2026-10-20. Audited revisions: `project-shared-docs` `main` @ `43729f3`;
 `capitalix` `integration/E01-FOUNDATION-SAAS` @ `f28429c8` (after PR #6). Nothing here contains a secret value.
@@ -23,32 +23,29 @@ Audit date: 2026-10-20. Audited revisions: `project-shared-docs` `main` @ `43729
 
 ## 2. GitLab status — audited, not assumed
 
-**Question: is GitLab completely removed and are all operations GitHub-only?**
-**Answer: for the gap automation, yes. For the whole system, no — one dependency remains and it is documented, not hidden.**
+Audit date: 2026-10-20 (updated after the publication migration). Details: [GITHUB_PUBLICATION.md](GITHUB_PUBLICATION.md) §1.
 
-Evidence (re-run it yourself with the commands at the end of this section):
+**State of the code: every operational GitLab dependency has a GitHub replacement implemented and tested. State of the
+deployment: not cut over, so GitLab is *not yet* completely out of the running system.** Both statements are true and are kept separate on purpose.
 
 | Area | Finding |
 |---|---|
-| `automation/gap/` code (coordinator, adapter, dispatcher, worker, sandbox, preflight) | **No GitLab client, API call, URL, token variable or CI job.** Remaining string hits are defensive only: a GitLab-token *pattern* in the secret scanner, `GITLAB_*` env names that are *scrubbed* from the agent's environment, and `.gitlab-ci.yml` in the *protected-paths* list. |
-| `.github/workflows/` | Only GitHub Actions (`api-gap-coordinator`, `api-gap-automation-tests`, `contract-toolkit`). Zero GitLab. |
-| Backend repo `capitalix` | No GitLab file in the 7,298-file tree; its only workflow (`publish-shared-docs.yml`) is GitHub Actions and syncs business docs only. |
-| Gap tracking (issues, labels, PRs, approvals, evidence) | GitHub Issues / Pull Requests / label events only. |
-| Credentials | GitHub App key + GitHub tokens only. No GitLab variable exists. |
-| **Official contract publication** | **Still GitLab.** `api/implemented/` is written only by the "capitalix GitLab CI publisher" through a deploy key; `versions/2026.10.18-06d388692794/manifest.json` names source `alalmiyalhura/capitalix@2429b7d2`, a GitLab pipeline and job, and an HMAC approval keyed by a GitLab token. `AGENTS.md` and `api/implemented/README.md` state that rule. |
-| Documentation | Several docs describe that publisher (`README.md`, `AGENTS.md`, `docs/DEVELOPER_QUICKSTART.md`, `cycles/STATUS.md`, …). |
+| Gap automation (`automation/gap/`) | No GitLab client, URL, API call, token variable or CI job. Remaining hits are defensive only (token-format detector, `GITLAB_*` variables scrubbed from the agent's environment, `.gitlab-ci.yml` in the protected-paths list). |
+| Workflows | GitHub Actions only: `api-gap-coordinator`, `api-gap-automation-tests`, `contract-toolkit`, **`contract-publish`**, **`contract-publication-verify`** (shared-docs) and **`contract-build`** (capitalix). |
+| Backend repo | No GitLab file; the only other workflow syncs business docs. |
+| Contract generation, gates, approval, publication | **Implemented on GitHub** (section 3, step 7). The legacy GitLab publisher is **still able to write** until the owner deletes its deploy key and disables its job (cutover step 4) — a destructive step that was not performed. |
+| Historical records | Version `2026.10.18-06d388692794`, its manifest, `docs/ACCEPTANCE_EVIDENCE.md` and the pinned example name GitLab. Published versions are immutable, so this stays: history, not a dependency. |
+| Consumer example | `docs/DEVELOPER_QUICKSTART.md` shows a "GitLab CI" snippet for consumers that use GitLab themselves. Not part of this system. |
 
-**Consequence.** A fix merged on GitHub reaches the official contract only if that external publisher takes it. The
-automation does not contact, replace or bypass it. Until the owner approves and builds a GitHub publication path
-(`GITHUB_PUBLICATION_PROPOSAL.md`), every merged fix stays `MERGED_NOT_PUBLISHED` and is **never** reported as resolved.
+Do not read "GitLab removed" as true until the cutover checklist is done and the first GitHub publication has succeeded.
 
 Re-run the audit:
 
 ```sh
-git grep -n -i gitlab -- automation .github tools | grep -v tests/      # only defensive hits (see above)
-git grep -n -i "gitlab.com\|api/v4" -- automation .github               # no URL, no API: expect no output
-git grep -l -i gitlab -- api docs README.md AGENTS.md                   # the publication dependency
-```
+git grep -n -i "gitlab.com\|api/v4" -- automation .github tools/publish        # expect no output
+git grep -n -i gitlab -- automation .github tools | grep -v tests/              # defensive hits + client legacy-format comment only
+git grep -l -i gitlab -- api docs README.md AGENTS.md                           # history and the cutover documentation
+gh api repos/abdo-taher/project-shared-docs/keys --jq '.[].title'              # the legacy publisher key must be gone after cutover
 
 ## 3. The lifecycle
 
@@ -138,13 +135,24 @@ vacuous. Root causes E (consumer bug), F/G (business/auth decision) are triaged 
 Normal review of the Draft PR (body "Closes #<backend issue>"), normal gates, merge into
 `integration/E01-FOUNDATION-SAAS` by a person. After this the coordinator reports `IN_PROGRESS / MERGED_NOT_PUBLISHED`.
 
-### Step 7 — Contract publication (**the GitLab-dependent step**)
+### Step 7 — Contract publication (GitHub-only, owner-approved)
 
-Today: the external publisher builds a new versioned contract, the owner's HMAC approval is attached, and it writes
-`api/implemented/versions/<v>/{openapi.json,manifest.json,approval.json}` and moves `current.json`. The automation observes
-only the result. Verified independently by the automation: the published bytes match their sha256, and the content satisfies
-the fix's checks. **Not** verifiable from GitHub: that the contract was built from the merged commit.
-Planned alternative (not built, needs owner approval): `GITHUB_PUBLICATION_PROPOSAL.md`.
+```
+capitalix  : Actions → contract-build  (manual, development branch)  → artifact {openapi.json, build-record.json}
+shared-docs: Actions → contract-publish (manual, flag + environment review) with build_run_id
+             → verifies the build against the GitHub API → classifies changes → writes ONE new immutable version
+             → opens PR  publish/<version>      (never pushes to main)
+owner      : reviews compatibility.md / approval.json / manifest → approves + merges   (= the approval)
+shared-docs: contract-publication-verify (PR and main): tree sound, earlier versions untouched, ≤ 1 new version,
+             change reached main through an approved publish/* PR
+```
+
+What is verified: the build run (repository, workflow file, success, manual dispatch, branch, not a fork), that the commit is
+on the development branch, that the bytes are exactly the recorded bytes, the compatibility class of every change
+(**BREAKING and UNKNOWN fail closed**; an explicit owner decision is recorded in `approval.json`), immutability, no rollback,
+no stale or duplicate version. Provenance in the manifest: repository, commit, build run URL and workflow. Where GitHub
+artifact attestations become available for private repositories they can be added without changing the manifest.
+Full design, credentials, cutover and rollback: [GITHUB_PUBLICATION.md](GITHUB_PUBLICATION.md).
 
 ### Step 8 — State derivation (coordinator, every run)
 
@@ -152,8 +160,8 @@ Planned alternative (not built, needs owner approval): `GITHUB_PUBLICATION_PROPO
 |---|---|
 | valid, trusted | `ACCEPTED` |
 | open/draft PR or `gap::in-progress` | `IN_PROGRESS` |
-| PR merged into the development branch + evidence at the merge commit **and** still on the branch, but published contract does not satisfy the checks | `IN_PROGRESS / MERGED_NOT_PUBLISHED` |
-| the same, and the **currently published, digest-verified** contract satisfies every check, and ≥1 check fails on the reporter's version | `CONTRACT_PUBLISHED` (consumers notified with exact upgrade steps) |
+| PR merged into the development branch + evidence at the merge commit **and** still on the branch, but the published contract does not satisfy the checks — or, for a contract published by the GitHub publisher, its build commit does not contain the merge | `IN_PROGRESS / MERGED_NOT_PUBLISHED` |
+| the same, and the **currently published, digest-verified** contract satisfies every check, ≥1 check fails on the reporter's version, and (GitHub-published contracts) the build commit descends from the merge commit | `CONTRACT_PUBLISHED` (consumers notified with exact upgrade steps) |
 | consumer upgraded its pin, ran its tests, ran `confirm` | `CONSUMER_VERIFIED` |
 | backend issue closed as well | `RESOLVED` (per consumer, independently) |
 
@@ -219,8 +227,11 @@ Recovery: re-run the coordinator (idempotent); `--replay <n>` for a parked issue
 
 ## 8. Known limits
 
-1. Publication still depends on the external GitLab publisher (section 2); provenance of a published contract is not tied to a
-   GitHub commit.
+1. **Cutover not done.** The GitHub publisher exists and is tested but has published nothing; the legacy GitLab publisher can
+   still write until its deploy key is deleted. Legacy contracts (only `2026.10.18-…`) keep the weaker content-based proof.
+1b. **First GitHub publication is blocked by divergence:** the contract generated from the development head differs from the
+   published one by 527 breaking / 137 unclassified changes, so `prepare` refuses (fail closed) until development is reconciled
+   or the owner explicitly allows it.
 2. A real-agent end-to-end dispatch has not yet been run on the GitHub flow (needs a fresh gap and the approval label).
 3. `main` of `project-shared-docs` is not branch-protected, and the publisher's deploy key can write to it.
 4. The agent keeps its own model login and outbound network inside the sandbox; use a dedicated revocable token.

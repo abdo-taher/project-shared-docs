@@ -449,6 +449,13 @@ class Coordinator:
             return None, "RESOLUTION_EVIDENCE_INVALID"
         pointer = self.contracts.current()
         document = self.contracts.document(pointer["version"])
+        source = self.contracts.manifest(pointer["version"]).get("source", {})
+        proof = self.policy.get("publication_proof", "contract-evidence")
+        if source.get("repository") == self.policy["backend_repository"]:
+            # Published by the GitHub publisher: the build must descend from the merge that carries the fix.
+            if not self.gl.is_ancestor(merge_sha, source.get("commit", "")):
+                return None, "MERGED_NOT_PUBLISHED"
+            proof = "github-build-provenance"
         failures = [f for f in (evaluate_check(document, c) for c in evidence.get("checks", [])) if f]
         if failures:
             self._failures[iid] = failures
@@ -461,7 +468,7 @@ class Coordinator:
         summary = evidence.get("summary", "")
         return {"version": pointer["version"], "sha256": pointer["sha256"], "backend_commit": merge_sha,
                 "merge_request": change["iid"], "promoted_from_development": False,
-                "publication_proof": self.policy.get("publication_proof", "contract-evidence"),
+                "publication_proof": proof,
                 "root_cause": evidence["root_cause"],
                 "summary": summary if not core.sensitive_findings(summary) else "",
                 "checks": len(evidence.get("checks", []))}, "PUBLISHED_AND_VERIFIED"
@@ -509,9 +516,12 @@ class Coordinator:
             out.append(f"- Change: {r['summary'][:300]}")
         if r.get("backend_commit"):
             out.append(f"- Backend change released from commit `{r['backend_commit'][:12]}`")
-        if r.get("publication_proof"):
+        if r.get("publication_proof") == "github-build-provenance":
+            out.append("- Publication proof: the published contract was built from a commit that contains the "
+                       "merged fix (GitHub build provenance) and satisfies the fix's evidence checks")
+        elif r.get("publication_proof"):
             out.append("- Publication proof: the published contract satisfies the fix's evidence checks "
-                       "(the contract is released outside GitHub; its build provenance is not verified here)")
+                       "(published by the legacy process; its build provenance is not verified here)")
         if intake.state == "CONTRACT_PUBLISHED":
             out += ["- **Required consumer action** (your pin never moves on its own):",
                     f"  1. `python3 tool/capitalix_contract.py update --version {r['version']}`",
