@@ -40,4 +40,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ github.token }}
           SHA: ${{ github.sha }}
-        run: python3 tools/publish/capitalix_publish.py verify-merge --repo "$GITHUB_REPOSITORY" --sha "$SHA"
+        run: |
+          set -eu
+          # only the files that define published versions are publication-controlled; README/docs edits are ordinary changes
+          changed="$(git diff --name-only "$SHA^" "$SHA" -- api/implemented/versions api/implemented/current.json api/implemented/index.json)"
+          if [ -z "$changed" ]; then
+            echo "no published-version files changed in $SHA; nothing to enforce"
+            exit 0
+          fi
+          python3 tools/publish/capitalix_publish.py verify-merge --repo "$GITHUB_REPOSITORY" --sha "$SHA"
