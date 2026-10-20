@@ -112,6 +112,49 @@ After the merge the coordinator needs no change: for a contract whose manifest n
 that the build commit **descends from the merge commit of the fix** (`publication_proof: github-build-provenance`);
 for legacy contracts it keeps the content-based proof.
 
+### Automatic release from GitHub (workflow `contract-release`)
+
+Instead of running the command on a machine, GitHub itself can watch the backend and drive the cycle. The workflow
+`contract-release` runs every ten minutes (and on demand) and does one stateless pass of
+`tools/publish/release_orchestrator.py tick`:
+
+| It finds | It does |
+|---|---|
+| a new commit on `integration/E01-FOUNDATION-SAAS` with no build | runs `contract-build`, waits, then starts `contract-publish` with that run id and posts the **approval link** |
+| a `contract-publish` run waiting for your approval, or running | nothing |
+| a publication PR that is open | nothing (waiting for your merge) |
+| the head already built (also if that build failed or was refused) | nothing: a commit is never retried, push again or run with `force` |
+
+Each hand-off is posted as a comment on the issue labelled `contract-release` ("Contract release status"), by the
+workflow that reaches it, so you get one GitHub notification with the link per action:
+
+1. **approve the deployment** (link to the run: Review deployments, tick `contract-publisher`, Approve and deploy);
+2. **review and merge the publication PR** (link to the PR; the merge is the approval);
+3. **published** (version, after the merge is verified on `main`), or **stopped** with the reason and the run link.
+
+It never approves or merges, never pushes to `main`, and starts the publisher **without** `allow_breaking` /
+`allow_unknown`: accepting incompatible changes stays a manual decision (use the one-command tool with the flags, or run
+`contract-publish` by hand). A refusal such as "215 unclassified change(s)" arrives as a "stopped" comment.
+
+Switching it on (owner, once; nothing runs until both variables are `true`):
+
+```sh
+# 1. App permissions (GitHub UI, owner only): Actions -> Read and write, then accept them on the installation
+# 2. an environment without reviewers for the listener, holding the App key
+gh api -X PUT repos/abdo-taher/project-shared-docs/environments/contract-release
+gh secret set API_GAP_APP_PRIVATE_KEY --env contract-release -R abdo-taher/project-shared-docs < /path/to/key.pem
+# 3. switch on (both)
+gh variable set API_CONTRACT_PUBLICATION_ENABLED --body true -R abdo-taher/project-shared-docs
+gh variable set API_CONTRACT_AUTO_RELEASE --body true -R abdo-taher/project-shared-docs
+# 4. watch the issue "Contract release status" (Subscribe), or: gh issue list -R abdo-taher/project-shared-docs --label contract-release
+# switch off at any time
+gh variable set API_CONTRACT_AUTO_RELEASE --body false -R abdo-taher/project-shared-docs
+```
+
+Limits: GitHub schedules can start a few minutes late; the listener polls instead of reacting to the backend's push,
+so the delay after a merge is at most about ten minutes plus the build. The approval stops are real stops: a person
+must act on them.
+
 ## 5. Rollback
 
 - Before merge: close the PR and delete `publish/<version>`; nothing was published.

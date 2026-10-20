@@ -35,6 +35,9 @@ jobs:
     runs-on: ubuntu-latest
     environment: contract-publisher
     timeout-minutes: 20
+    permissions:
+      contents: read
+      issues: write   # status comments only (GITHUB_TOKEN); the pull request is opened with the App token
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
@@ -90,7 +93,7 @@ jobs:
           # shellcheck disable=SC2086
           python3 tools/publish/capitalix_publish.py prepare --artifact build-input/openapi.json \
             --build-record build-input/build-record.json --commit-date "$(cat build-input/commit-date.txt)" \
-            --shared-repo . $args ${INPUT_SCOPE:+--scope "$INPUT_SCOPE"} | tee prepare.log
+            --shared-repo . $args ${INPUT_SCOPE:+--scope "$INPUT_SCOPE"} 2>&1 | tee prepare.log
           version="$(sed -n 's/^publish: prepared version //p' prepare.log)"
           if [ -z "$version" ]; then echo "ERROR: prepare did not produce a version"; exit 1; fi
           echo "version=$version" >> "$GITHUB_OUTPUT"
@@ -132,5 +135,26 @@ jobs:
                 "compatibility classification, immutability of earlier versions. `contract-publication-verify` "
                 "re-checks them.")
           PY
-          gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
-            --title "docs(api): publish contract $VERSION" --body-file pr-body.md
+          pr_url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
+            --title "docs(api): publish contract $VERSION" --body-file pr-body.md)"
+          echo "$pr_url" >> "$GITHUB_STEP_SUMMARY"
+          echo "PR_URL=$pr_url" >> "$GITHUB_ENV"
+      - name: Tell the owner (review and merge)
+        if: ${{ success() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.prepare.outputs.version }}
+        run: |
+          python3 tools/publish/release_orchestrator.py notify "**ACTION NEEDED — review, approve and merge the publication pull request** for \`$VERSION\`:
+          $PR_URL
+
+          Check \`compatibility.md\`, \`approval.json\` and the green \`contract-publication-verify\` check. Your merge IS the approval to publish."
+      - name: Tell the owner (stopped)
+        if: ${{ failure() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          reason="$(grep -h 'publish' prepare.log 2>/dev/null | tail -3 || true)"
+          python3 tools/publish/release_orchestrator.py notify "**The publication stopped; nothing was published.** ${reason:-See the run.}
+          $RUN_URL" || true

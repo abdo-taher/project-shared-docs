@@ -97,5 +97,31 @@ class BackendBuildWorkflowTests(unittest.TestCase):
         self.assertTrue(self.body.startswith("name: contract-build"))
 
 
+class AutoReleaseWorkflowTests(unittest.TestCase):
+
+    def test_release_listener_is_gated_and_cannot_publish_approve_or_merge(self):
+        body = text("contract-release.yml")
+        self.assertIn("vars.API_CONTRACT_AUTO_RELEASE == 'true'", body)
+        self.assertIn("vars.API_CONTRACT_PUBLICATION_ENABLED == 'true'", body)
+        self.assertIn("environment: contract-release", body)
+        self.assertIn("schedule:", triggers(body))
+        self.assertIn("group: contract-release", body)
+        code = "\n".join(ln.split(" #")[0] for ln in body.splitlines() if not ln.lstrip().startswith("#"))
+        for forbidden in ("pr merge", "pr review", "--admin", "allow_breaking", "allow_unknown", "capitalix_publish.py",
+                          "git push", "contents: write"):
+            self.assertNotIn(forbidden, code)
+
+    def test_only_the_publisher_workflow_writes_published_versions(self):
+        writers = [p.name for p in WORKFLOWS.glob("*.yml") if "capitalix_publish.py prepare" in p.read_text()]
+        self.assertEqual(writers, ["contract-publish.yml"])
+
+    def test_owner_hand_offs_are_reported_by_the_workflow_that_reaches_them(self):
+        publish, verify = text("contract-publish.yml"), text("contract-publication-verify.yml")
+        self.assertIn("ACTION NEEDED", publish)
+        self.assertIn("Tell the owner (stopped)", publish)
+        self.assertIn("Published:", verify)
+        self.assertIn("issues: write", verify)
+
+
 if __name__ == "__main__":
     unittest.main()
