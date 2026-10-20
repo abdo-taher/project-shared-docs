@@ -1,0 +1,55 @@
+name: contract-release-trigger
+
+# Reference copy: lives in abdo-taher/capitalix as .github/workflows/contract-release-trigger.yml (development branch AND main).
+# Tells project-shared-docs to run a release pass NOW after a push instead of waiting for its ten-minute schedule.
+# Notification only: it builds nothing, publishes nothing and approves nothing. It uses the GitHub App (one-hour token,
+# one repository, Actions: write) and never a personal token. It is inert until the variable API_CONTRACT_RELEASE_TRIGGER
+# is 'true', and it cannot fail loudly: a problem becomes a warning annotation (no failed run, so no failure email).
+# The release pass always releases the current head of the development branch, so a push to main that adds no
+# development commit ends as "already built".
+on:
+  push:
+    branches: [integration/E01-FOUNDATION-SAAS, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: contract-release-trigger-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  notify:
+    if: ${{ vars.API_CONTRACT_RELEASE_TRIGGER == 'true' }}
+    runs-on: ubuntu-latest
+    environment: contract-trigger
+    timeout-minutes: 5
+    steps:
+      - name: Token for the shared-docs repository (start one workflow)
+        id: token
+        continue-on-error: true
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
+        with:
+          client-id: ${{ vars.API_GAP_APP_CLIENT_ID }}
+          private-key: ${{ secrets.API_GAP_APP_PRIVATE_KEY }}
+          owner: abdo-taher
+          repositories: project-shared-docs
+          permission-actions: write
+          permission-metadata: read
+      - name: Ask project-shared-docs for a release pass
+        id: dispatch
+        if: ${{ steps.token.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          PUSHED_SHA: ${{ github.sha }}
+          PUSHED_REF: ${{ github.ref_name }}
+        run: |
+          gh workflow run contract-release.yml -R abdo-taher/project-shared-docs --ref main \
+            -f pushed_sha="$PUSHED_SHA" -f pushed_ref="$PUSHED_REF"
+          echo "release pass requested for ${PUSHED_SHA:0:12} ($PUSHED_REF)" >> "$GITHUB_STEP_SUMMARY"
+      - name: Warn (never fail)
+        if: ${{ steps.token.outcome != 'success' || steps.dispatch.outcome == 'failure' }}
+        run: |
+          echo "::warning::could not ask project-shared-docs for a release pass; its ten-minute schedule will still pick the push up"
+          echo "release pass NOT requested (the scheduled pass will cover it)" >> "$GITHUB_STEP_SUMMARY"

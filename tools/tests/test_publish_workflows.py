@@ -122,6 +122,49 @@ class AutoReleaseWorkflowTests(unittest.TestCase):
         self.assertIn("Published:", verify)
         self.assertIn("issues: write", verify)
 
+class PushTriggerTests(unittest.TestCase):
+    TRIGGER = ROOT / "docs/api-gap/backend/contract-release-trigger.yml"
+
+    def code(self, body):
+        return "\n".join(ln.split(" #")[0] for ln in body.splitlines() if not ln.lstrip().startswith("#"))
+
+    def test_trigger_is_inert_by_default_uses_the_app_and_only_notifies(self):
+        body = self.TRIGGER.read_text()
+        code = self.code(body)
+        self.assertIn("vars.API_CONTRACT_RELEASE_TRIGGER == 'true'", code)
+        self.assertIn("actions/create-github-app-token@", code)
+        self.assertIn("permission-actions: write", code)
+        self.assertIn("repositories: project-shared-docs", code)
+        self.assertRegex(code, r"branches: \[integration/E01-FOUNDATION-SAAS, main\]")
+        self.assertIn("gh workflow run contract-release.yml", code)
+        for forbidden in ("secrets.GITHUB_TOKEN", "PAT", "personal", "allow_breaking", "allow_unknown", "pr merge",
+                          "pr review", "git push", "contents: write", "contract-publish.yml", "SHARED_DOCS_TOKEN"):
+            self.assertNotIn(forbidden, code)
+
+    def test_trigger_can_never_fail_a_run(self):
+        code = self.code(self.TRIGGER.read_text())
+        # both fallible steps are non-fatal and the only other step just warns
+        self.assertEqual(code.count("continue-on-error: true"), 2)
+        self.assertNotIn("exit 1", code)
+
+    def test_release_listener_cannot_fail_loudly_on_a_missing_token_and_takes_no_branch_checkout(self):
+        body = text("contract-release.yml")
+        code = self.code(body)
+        self.assertIn("continue-on-error: true", code)
+        self.assertIn("steps.backend.outcome == 'success'", code)
+        self.assertIn("notify-once --key backend-token", code)
+        self.assertNotIn("ref: main", code)               # a branch dispatch tests the branch's own code
+        self.assertIn("pushed_sha", code)
+        self.assertIn("--settle 30", code)
+        self.assertIn("*[!0-9a-f]*", code)                # the pushed sha is validated, never interpolated into the shell
+
+    def test_publisher_names_its_inputs_and_keeps_its_gate(self):
+        body = text("contract-publish.yml")
+        self.assertIn('run-name: "contract-publish · build ${{ inputs.build_run_id }}', body)
+        self.assertIn("allow_unknown=${{ inputs.allow_unknown }}", body)
+        self.assertIn("environment: contract-publisher", body)
+        self.assertIn("if: ${{ vars.API_CONTRACT_PUBLICATION_ENABLED == 'true' }}", body)
+
 
 if __name__ == "__main__":
     unittest.main()

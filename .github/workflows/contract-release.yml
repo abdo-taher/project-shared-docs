@@ -1,11 +1,16 @@
 name: contract-release
 
-# GitHub-side release listener. Every ten minutes (or on demand) it looks at the backend development branch and, when
-# there is a commit that has not been built, runs the cycle: contract-build -> contract-publish (which waits for the
-# owner's deployment approval) -> publication pull request (the owner's merge is the approval).
+# GitHub-side release listener. It runs (a) immediately when the backend reports a push (workflow_dispatch from
+# `contract-release-trigger` in abdo-taher/capitalix), (b) every ten minutes as an idempotent fallback, (c) on demand.
+# A pass releases the CURRENT head of the backend development branch if it has not been built: contract-build ->
+# (if the contract changed) contract-publish, which waits for the owner's deployment approval -> publication pull
+# request (the owner's merge is the approval).
 # It never approves, merges, pushes to main, or accepts breaking/unclassified changes (the publisher is dispatched
 # without allow_breaking / allow_unknown). Every step that needs the owner is posted with its link to the issue labelled
-# `contract-release`. Disabled unless BOTH repository variables are 'true'.
+# `contract-release`. Disabled unless BOTH repository variables are 'true'. A fault ends the pass quietly and is reported
+# once on that issue, so a scheduled run cannot fail (and email) every ten minutes.
+run-name: "contract-release (${{ github.event_name }}${{ inputs.pushed_sha && format(' · push {0}', inputs.pushed_sha) || '' }})"
+
 on:
   workflow_dispatch:
     inputs:
@@ -13,6 +18,18 @@ on:
         description: "Release the branch head even if it was built before"
         required: false
         default: "false"
+      pushed_sha:
+        description: "Commit whose push started this pass (set by the backend trigger; the latest head is released)"
+        required: false
+        default: ""
+      pushed_ref:
+        description: "Branch that was pushed (informational)"
+        required: false
+        default: ""
+      backend_branch:
+        description: "Tests only: a test/release-* branch of the backend instead of the development branch"
+        required: false
+        default: ""
   schedule:
     - cron: "*/10 * * * *"
 
@@ -35,11 +52,11 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
-          ref: main
           persist-credentials: false
       # One-hour token limited to the backend repository: start the build and read its runs.
       - name: Token for the backend repository (dispatch contract-build, read runs)
         id: backend
+        continue-on-error: true
         uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3.3.0
         with:
           client-id: ${{ vars.API_GAP_APP_CLIENT_ID }}
@@ -50,14 +67,30 @@ jobs:
           permission-contents: read
           permission-metadata: read
       - name: Release the next backend commit, if there is one
+        if: ${{ steps.backend.outcome == 'success' }}
         env:
           GH_TOKEN: ${{ github.token }}
           BACKEND_GH_TOKEN: ${{ steps.backend.outputs.token }}
           FORCE: ${{ inputs.force }}
+          PUSHED_SHA: ${{ inputs.pushed_sha }}
+          BACKEND_BRANCH: ${{ inputs.backend_branch }}
         run: |
           set -eu
-          if [ "${FORCE:-false}" = "true" ]; then
-            python3 tools/publish/release_orchestrator.py tick --force
-          else
-            python3 tools/publish/release_orchestrator.py tick
-          fi
+          args=""
+          if [ "${FORCE:-false}" = "true" ]; then args="$args --force"; fi
+          case "${PUSHED_SHA:-}" in
+            "") ;;
+            *[!0-9a-f]*) echo "::warning::ignoring a malformed pushed_sha" ;;
+            *) args="$args --pushed $PUSHED_SHA --settle 30" ;;
+          esac
+          if [ -n "${BACKEND_BRANCH:-}" ]; then args="$args --branch $BACKEND_BRANCH"; fi
+          # shellcheck disable=SC2086
+          python3 tools/publish/release_orchestrator.py tick $args
+      - name: Say once on the status issue that the backend token cannot be created
+        if: ${{ steps.backend.outcome != 'success' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          echo "::warning::could not create the backend installation token (App permissions or secret); see the status issue"
+          python3 tools/publish/release_orchestrator.py notify-once --key backend-token \
+            "**The release listener cannot create its backend token.** Check that the GitHub App installation grants Actions: read and write on \`capitalix\` and that environment \`contract-release\` holds \`API_GAP_APP_PRIVATE_KEY\`. Nothing was built or published. Reported once; scheduled passes keep trying quietly." || true

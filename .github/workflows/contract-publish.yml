@@ -3,6 +3,9 @@ name: contract-publish
 # The ONLY publisher of api/implemented/. Manual, owner-reviewed, and it never pushes to main: it verifies one
 # genuine backend build, lays out ONE new immutable version on a `publish/*` branch and opens a pull request.
 # The owner's review of that pull request is the approval (branch protection + contract-publication-verify).
+# The run name states the inputs, so what was requested is visible (and checkable through the API) before anyone approves.
+run-name: "contract-publish · build ${{ inputs.build_run_id }} · allow_breaking=${{ inputs.allow_breaking }} · allow_unknown=${{ inputs.allow_unknown }}"
+
 on:
   workflow_dispatch:
     inputs:
