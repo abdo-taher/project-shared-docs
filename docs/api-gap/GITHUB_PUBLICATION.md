@@ -112,48 +112,76 @@ After the merge the coordinator needs no change: for a contract whose manifest n
 that the build commit **descends from the merge commit of the fix** (`publication_proof: github-build-provenance`);
 for legacy contracts it keeps the content-based proof.
 
-### Automatic release from GitHub (workflow `contract-release`)
+### Automatic release from GitHub (workflows `contract-release` and `contract-release-trigger`)
 
-Instead of running the command on a machine, GitHub itself can watch the backend and drive the cycle. The workflow
-`contract-release` runs every ten minutes (and on demand) and does one stateless pass of
-`tools/publish/release_orchestrator.py tick`:
+GitHub itself watches the backend and drives the cycle. There are two parts:
 
-| It finds | It does |
+* **`contract-release`** (this repository) does one stateless pass of `tools/publish/release_orchestrator.py tick`.
+  It runs **immediately after a backend push** (started by `contract-release-trigger`), **every ten minutes** as an
+  idempotent fallback, and on demand.
+* **`contract-release-trigger`** (in `abdo-taher/capitalix`, on the development branch and on `main`; reference copy in
+  `docs/api-gap/backend/contract-release-trigger.yml`) only tells this repository to run a pass, with the GitHub App's
+  one-hour token (never a personal token). It builds, publishes and approves nothing.
+
+| A pass finds | It does |
 |---|---|
-| a new commit on `integration/E01-FOUNDATION-SAAS` with no build | runs `contract-build`, waits, then starts `contract-publish` with that run id and posts the **approval link** |
+| a commit on `integration/E01-FOUNDATION-SAAS` that no build has used | runs `contract-build`, waits; if the contract differs from the published one it starts `contract-publish` with that run id and posts the **approval link** |
+| the build's contract is byte-identical to the published one | nothing to publish: no approval request |
 | a `contract-publish` run waiting for your approval, or running | nothing |
 | a publication PR that is open | nothing (waiting for your merge) |
-| the head already built (also if that build failed or was refused) | nothing: a commit is never retried, push again or run with `force` |
+| the head already built (also if that build failed or was refused) | nothing: a commit is never retried; push again or run with `force` |
 
-Each hand-off is posted as a comment on the issue labelled `contract-release` ("Contract release status"), by the
-workflow that reaches it, so you get one GitHub notification with the link per action:
+Why the *development branch* head and not the `main` head: the publisher only accepts a build whose run was dispatched on
+`integration/E01-FOUNDATION-SAAS` and whose commit is an ancestor of it (`verify_build`). A push to `main` normally only
+merges commits that are already on the development branch, so its pass ends as "already built". The trigger fires on
+both branches because it costs nothing and is idempotent.
+
+**Quick pushes and duplicates.** A pass always releases the *current* head and, when started by a push, waits until the
+head has been still for 30 seconds, so several quick pushes become one build. The workflow's concurrency group
+(`contract-release`, never cancelling) lets one pass run at a time; a trigger that arrives meanwhile waits, then finds the
+build or the pending approval and does nothing. A newer push during a pending approval is released after you approve or
+cancel that run. The same commit is never built twice (any earlier build of the commit, successful or not, counts) unless
+`force` is set.
+
+**No repeated failure emails.** The trigger's steps are `continue-on-error` (a problem is a warning annotation, never a
+failed run) and it is skipped unless the backend variable is `true`. In the listener, a backend-token failure or any
+fault in a pass ends the run green and is reported **once** on the status issue (an HTML marker prevents a repeat while
+nothing else was posted). A failed build is reported once and ends that pass red once; the commit is not retried.
+
+Every hand-off is a comment on the issue labelled `contract-release` ("Contract release status", the oldest one if there
+were ever duplicates), posted by the workflow that reaches it, so you get one GitHub notification with the link per action:
 
 1. **approve the deployment** (link to the run: Review deployments, tick `contract-publisher`, Approve and deploy);
 2. **review and merge the publication PR** (link to the PR; the merge is the approval);
 3. **published** (version, after the merge is verified on `main`), or **stopped** with the reason and the run link.
 
 It never approves or merges, never pushes to `main`, and starts the publisher **without** `allow_breaking` /
-`allow_unknown`: accepting incompatible changes stays a manual decision (use the one-command tool with the flags, or run
-`contract-publish` by hand). A refusal such as "215 unclassified change(s)" arrives as a "stopped" comment.
+`allow_unknown`. The publish run's title states its inputs (`contract-publish · build N · allow_breaking=false ·
+allow_unknown=false`), so what was requested is visible, and checkable through the API, before anyone approves.
+A refusal such as "215 unclassified change(s)" arrives as a "stopped" comment.
 
-Switching it on (owner, once; nothing runs until both variables are `true`):
+Switching it on (owner; the order matters, nothing runs until the variables are `true`):
 
 ```sh
-# 1. App permissions (GitHub UI, owner only): Actions -> Read and write, then accept them on the installation
-# 2. an environment without reviewers for the listener, holding the App key
-gh api -X PUT repos/abdo-taher/project-shared-docs/environments/contract-release
-gh secret set API_GAP_APP_PRIVATE_KEY --env contract-release -R abdo-taher/project-shared-docs < /path/to/key.pem
-# 3. switch on (both)
+# shared-docs side (done once): App has Actions read+write; environment contract-release holds the App key;
 gh variable set API_CONTRACT_PUBLICATION_ENABLED --body true -R abdo-taher/project-shared-docs
 gh variable set API_CONTRACT_AUTO_RELEASE --body true -R abdo-taher/project-shared-docs
-# 4. watch the issue "Contract release status" (Subscribe), or: gh issue list -R abdo-taher/project-shared-docs --label contract-release
+# backend side (for the immediate trigger): an environment for the trigger, the App key in it, the client id, then the switch
+gh api -X PUT repos/abdo-taher/capitalix/environments/contract-trigger
+gh secret set API_GAP_APP_PRIVATE_KEY --env contract-trigger -R abdo-taher/capitalix < /path/to/key.pem
+gh variable set API_GAP_APP_CLIENT_ID --body "<client id>" -R abdo-taher/capitalix
+gh variable set API_CONTRACT_RELEASE_TRIGGER --body true -R abdo-taher/capitalix      # last
 # switch off at any time
-gh variable set API_CONTRACT_AUTO_RELEASE --body false -R abdo-taher/project-shared-docs
+gh variable set API_CONTRACT_RELEASE_TRIGGER --body false -R abdo-taher/capitalix     # no more immediate passes
+gh variable set API_CONTRACT_AUTO_RELEASE --body false -R abdo-taher/project-shared-docs   # no passes at all
 ```
 
-Limits: GitHub schedules can start a few minutes late; the listener polls instead of reacting to the backend's push,
-so the delay after a merge is at most about ten minutes plus the build. The approval stops are real stops: a person
-must act on them.
+Testing without a real commit: a `test/release-*` branch of the backend can be released through the `backend_branch`
+input of `contract-release` (no other branch is accepted). The publisher refuses such a build, and it still stops at
+your approval gate.
+
+Limits: GitHub starts scheduled workflows late at times; with the trigger the delay after a push is about the 30-second
+settle plus the build. The approval stops are real stops: a person must act on them.
 
 ## 5. Rollback
 
