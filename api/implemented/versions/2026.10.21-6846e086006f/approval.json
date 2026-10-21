@@ -1,0 +1,26 @@
+{
+  "schema": "capitalix-contract-approval/2",
+  "decision": "APPROVED",
+  "approval_method": "github-pull-request-review",
+  "approval_note": "Takes effect only when the owner approves and merges the publication pull request; branch protection and the contract-publication-verify check enforce that on GitHub.",
+  "approved_artifact_sha256": "6846e086006f4829947fc80bfaf7510c2ebcc9775354fe1123e71b93aa5c4afe",
+  "baseline_artifact_sha256": "06d3886927947b77daad9c38c677bee4beb0b6f39ff8f0b8ad8c5d1bc257578c",
+  "compatibility_digest": "a812ff74cadd537e518444d536f111da6c31085990c6d2b4bc05542b0cb413c4",
+  "compatibility_summary": {
+    "BREAKING": 602,
+    "UNKNOWN": 32
+  },
+  "approved_scope": [
+    "One-time re-baseline from GitLab-era 2026.10.18-06d388692794 to the GitHub integration branch: accepts the changes listed in capitalix#25 and project-shared-docs#28"
+  ],
+  "allow_breaking": true,
+  "allow_unknown": true,
+  "initial_publication": false,
+  "build": {
+    "repository": "abdo-taher/capitalix",
+    "commit": "9d5502f689aeb364ebe1f50f92d7b056538e0fb0",
+    "run_id": 39585984564,
+    "run_url": "https://github.com/abdo-taher/capitalix/actions/runs/39585984564",
+    "branch": "integration/E01-FOUNDATION-SAAS"
+  }
+}
