@@ -9,7 +9,12 @@ difference:
                       required inputs, removed accepted inputs, auth changes,
                       operationId changes that rename SDK methods, ...)
   NON_BREAKING        safe additive changes (new operations, new optional
-                      inputs, new response fields, widened nullability, ...)
+                      inputs, new response fields, widened request values, ...)
+
+Requests and responses are judged by one rule: a narrower set of accepted
+values breaks requests and is safe for responses; a wider set is the reverse
+(e.g. null newly returned, or a response field that became optional, is
+BREAKING). A schema shared by requests and responses breaks either way.
   DOCUMENTATION_ONLY  text/metadata/deprecation-marking changes that do not
                       change the runtime contract
   UNKNOWN             a difference the classifier cannot definitively
@@ -363,7 +368,7 @@ class SchemaDiffer:
         if bool(b.get("nullable")) != bool(c.get("nullable")):
             added = bool(c.get("nullable"))
             self.emit(Change(
-                NON_BREAKING if added else BREAKING,
+                value_set_category(not added, direction),
                 f"{kind_prefix}_nullable_changed", loc,
                 "nullable " + ("added" if added else "removed"),
                 before=bool(b.get("nullable")), after=bool(c.get("nullable"))))
@@ -443,7 +448,9 @@ class SchemaDiffer:
             return
         added, removed = c_types - b_types, b_types - c_types
         if added == {"null"} and not removed:
-            self.emit(Change(NON_BREAKING,
+            # request: null newly accepted -> NON_BREAKING
+            # response: null may now reach clients that never received it -> BREAKING
+            self.emit(Change(value_set_category(False, direction),
                              f"{kind_prefix}_nullability_added", loc,
                              "type now also accepts/returns null",
                              before=sorted(b_types), after=sorted(c_types)))
@@ -518,8 +525,11 @@ class SchemaDiffer:
                                  f"field [{name}] removed", before=_brief(b_props[name])))
                 continue
             if in_c and not in_b:
+                # A new required field narrows the accepted objects: requests that
+                # omit it are now rejected, responses now always carry it.
                 if name in c_req:
-                    self.emit(Change(BREAKING, f"{kind_prefix}_required_field_added", ploc,
+                    self.emit(Change(value_set_category(True, direction),
+                                     f"{kind_prefix}_required_field_added", ploc,
                                      f"new REQUIRED field [{name}]",
                                      after=_brief(c_props[name])))
                 else:
@@ -530,11 +540,13 @@ class SchemaDiffer:
 
             was_req, is_req = name in b_req, name in c_req
             if not was_req and is_req:
-                self.emit(Change(BREAKING, f"{kind_prefix}_field_became_required", ploc,
+                self.emit(Change(value_set_category(True, direction),
+                                 f"{kind_prefix}_field_became_required", ploc,
                                  f"field [{name}] became required",
                                  before={"required": False}, after={"required": True}))
             elif was_req and not is_req:
-                self.emit(Change(NON_BREAKING, f"{kind_prefix}_field_became_optional", ploc,
+                self.emit(Change(value_set_category(False, direction),
+                                 f"{kind_prefix}_field_became_optional", ploc,
                                  f"field [{name}] became optional",
                                  before={"required": True}, after={"required": False}))
 
@@ -632,6 +644,27 @@ def _operations_referencing(document: dict, pointer: str, graph: dict[str, set[s
     return result
 
 
+def _reachable_refs(document: dict, nodes: list[Any]) -> set[str]:
+    """Every local $ref reachable from the given nodes, following referenced
+    components transitively."""
+    seen: set[str] = set()
+    stack = list(nodes)
+    while stack:
+        node = stack.pop()
+        if isinstance(node, dict):
+            ref = node.get("$ref")
+            if isinstance(ref, str) and ref.startswith("#/") and ref not in seen:
+                seen.add(ref)
+                try:
+                    stack.append(RefResolver(document).resolve(ref))
+                except KeyError:
+                    pass
+            stack.extend(node.values())
+        elif isinstance(node, list):
+            stack.extend(node)
+    return seen
+
+
 class CompatibilityAnalyzer:
     def __init__(self, baseline: dict, candidate: dict):
         self.baseline = baseline
@@ -640,6 +673,7 @@ class CompatibilityAnalyzer:
         self.baseline_resolver = RefResolver(baseline)
         self.candidate_resolver = RefResolver(candidate)
         self.graph = _referrer_components(baseline)
+        self._usage: dict[str, set[str]] | None = None
         self.schema_differ = SchemaDiffer(
             self.baseline_resolver, self.candidate_resolver, self.changes.append)
 
@@ -1156,33 +1190,26 @@ class CompatibilityAnalyzer:
                          affected_operations=affected))
 
     def _usage_direction(self, pointer: str) -> str:
-        """Whether the shared schema is used in requests, responses, or both."""
-        used_in_responses = used_in_requests = False
-        for operation in _operations(self.candidate).values():
-            responses_blob = json.dumps(operation.get("responses") or {}, sort_keys=True)
-            if f'"$ref":"{pointer}"' in responses_blob.replace(" ", ""):
-                used_in_responses = True
-            rb = operation.get("requestBody")
-            if rb and f'"$ref":"{pointer}"' in json.dumps(rb, sort_keys=True).replace(" ", ""):
-                used_in_requests = True
-            for parameter in operation.get("parameters") or []:
-                if f'"$ref":"{pointer}"' in json.dumps(parameter, sort_keys=True).replace(" ", ""):
-                    used_in_requests = True
-        # Also consider component-to-component references (shared responses etc.).
-        if not used_in_responses and not used_in_requests:
-            components = self.candidate.get("components") or {}
-            for section in ("responses", "parameters", "requestBodies"):
-                for body in (components.get(section) or {}).values():
-                    if f'"$ref":"{pointer}"' in json.dumps(body, sort_keys=True).replace(" ", ""):
-                        if section == "responses":
-                            used_in_responses = True
-                        else:
-                            used_in_requests = True
-        if used_in_responses and used_in_requests:
-            return "both"
-        if used_in_responses:
+        """Whether the shared schema is used in requests, responses, or both.
+
+        Follows $refs transitively (a schema nested in a request body through
+        other components is used in requests) in both documents. A schema no
+        operation reaches is judged as "both", the strictest direction."""
+        if self._usage is None:
+            self._usage = {}
+            for document in (self.baseline, self.candidate):
+                for operation in _operations(document).values():
+                    parts = {"response": [operation.get("responses")],
+                             "request": [operation.get("requestBody"), operation.get("parameters")]}
+                    for side, nodes in parts.items():
+                        for ref in _reachable_refs(document, nodes):
+                            self._usage.setdefault(ref, set()).add(side)
+        sides = self._usage.get(pointer, set())
+        if sides == {"response"}:
             return "response"
-        return "request"
+        if sides == {"request"}:
+            return "request"
+        return "both"
 
 
 def build_report(baseline: dict, candidate: dict,
