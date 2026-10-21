@@ -13,8 +13,8 @@ difference:
   DOCUMENTATION_ONLY  text/metadata/deprecation-marking changes that do not
                       change the runtime contract
   UNKNOWN             a difference the classifier cannot definitively
-                      interpret (composition rewrites, constraint changes,
-                      unrecognized keywords, unresolvable $refs, ...)
+                      interpret (oneOf rewrites, allOf/anyOf member-count
+                      changes, unrecognized keywords, unresolvable $refs, ...)
 
 UNKNOWN is never treated as safe. When a definitive compatibility decision
 is required (--fail-on-unknown), any UNKNOWN fails the run (exit 2).
@@ -61,7 +61,17 @@ SCHEMA_KEYWORDS_INTERPRETED = {
     "example", "examples", "nullable", "deprecated", "readOnly", "writeOnly",
     "$ref", "$comment", "discriminator", "xml", "externalDocs", "allOf",
     "oneOf", "anyOf", "not",
+    "minLength", "maxLength", "minItems", "maxItems", "minProperties",
+    "maxProperties", "minimum", "maximum", "pattern",
 }
+
+# Numeric bounds: an absent bound is the loosest one (0 for counts, unbounded
+# for minimum/maximum). Non-numeric values fall through to UNKNOWN.
+LOWER_BOUNDS = {"minLength": 0, "minItems": 0, "minProperties": 0, "minimum": float("-inf")}
+UPPER_BOUNDS = {"maxLength": float("inf"), "maxItems": float("inf"),
+                "maxProperties": float("inf"), "maximum": float("inf")}
+
+NULL_SCHEMA = {"type": "null"}
 
 DOC_ONLY_SCHEMA_KEYS = {"description", "summary", "title", "example", "examples",
                         "$comment", "xml", "externalDocs", "default", "deprecated"}
@@ -69,6 +79,17 @@ DOC_ONLY_SCHEMA_KEYS = {"description", "summary", "title", "example", "examples"
 
 def severity_max(*categories: str) -> str:
     return max(categories, key=lambda c: _SEVERITY[c])
+
+
+def value_set_category(narrowed: bool, direction: str) -> str:
+    """A narrower accepted value set breaks requests (clients may send what is
+    now rejected) and is safe for responses; a wider one is the reverse. A
+    schema shared by requests and responses breaks either way."""
+    if direction == "both":
+        return BREAKING
+    if direction == "request":
+        return BREAKING if narrowed else NON_BREAKING
+    return NON_BREAKING if narrowed else BREAKING
 
 
 class RefResolver:
@@ -186,6 +207,15 @@ class SchemaDiffer:
                              before=_brief(base), after=_brief(cand)))
             return
 
+        try:
+            base_r = self._collapse_nullable_any_of(base_r, self.baseline_resolver)
+            cand_r = self._collapse_nullable_any_of(cand_r, self.candidate_resolver)
+        except KeyError as exc:
+            self.emit(Change(UNKNOWN, f"{kind_prefix}_unresolvable_ref", loc,
+                             f"cannot resolve $ref for comparison: {loc}: {exc}",
+                             before=_brief(base), after=_brief(cand)))
+            return
+
         if base_r == cand_r:
             return
 
@@ -203,17 +233,45 @@ class SchemaDiffer:
 
         self._diff_object_schema(base_r, cand_r, loc, direction, kind_prefix)
 
+    @staticmethod
+    def _collapse_nullable_any_of(schema: Any, resolver: RefResolver) -> Any:
+        """`anyOf: [X, {type: null}]` is the OpenAPI 3.1 spelling of a nullable
+        X. Returns X with null admitted (in `type`, and in `enum` when X is an
+        enum) so it compares against the inline `type: [.., "null"]` form.
+        Anything else is returned unchanged."""
+        if not isinstance(schema, dict):
+            return schema
+        members = schema.get("anyOf")
+        if (not isinstance(members, list) or len(members) != 2
+                or members.count(NULL_SCHEMA) != 1
+                or set(schema) - {"anyOf"} - DOC_ONLY_SCHEMA_KEYS):
+            return schema
+        target = resolver.deref(members[1] if members[0] == NULL_SCHEMA else members[0])
+        if (not isinstance(target, dict) or not isinstance(target.get("type"), (str, list))
+                or {"allOf", "oneOf", "anyOf", "not", "const"} & set(target)):
+            return schema
+        types = target["type"] if isinstance(target["type"], list) else [target["type"]]
+        collapsed = {**target, **{k: v for k, v in schema.items() if k != "anyOf"}}
+        collapsed["type"] = types + ([] if "null" in types else ["null"])
+        if isinstance(target.get("enum"), list) and None not in target["enum"]:
+            collapsed["enum"] = target["enum"] + [None]
+        return collapsed
+
     def _diff_object_schema(self, b: dict, c: dict, loc: str, direction: str,
                             kind_prefix: str) -> None:
         # type ----------------------------------------------------------------
         b_types, c_types = self._type_set(b), self._type_set(c)
-        if b_types != c_types:
-            self._classify_type_change(b_types, c_types, loc, direction, kind_prefix)
+        if b_types != c_types or ("type" in b) != ("type" in c):
+            self._classify_type_change(b, c, b_types, c_types, loc, direction, kind_prefix)
 
         # format --------------------------------------------------------------
         if b.get("format") != c.get("format"):
             if b.get("format") is None or c.get("format") is None:
-                self.emit(Change(UNKNOWN, f"{kind_prefix}_format_changed", loc,
+                # Adding a format narrows the documented values (and typed SDKs
+                # switch to e.g. DateTime); removing one widens them.
+                added = b.get("format") is None
+                self.emit(Change(value_set_category(added, direction),
+                                 f"{kind_prefix}_format_{'added' if added else 'removed'}", loc,
                                  f"format changed ({b.get('format')!r} -> {c.get('format')!r})",
                                  before=b.get("format"), after=c.get("format")))
             else:
@@ -223,6 +281,9 @@ class SchemaDiffer:
 
         # enum ----------------------------------------------------------------
         self._diff_enum(b, c, loc, direction, kind_prefix)
+
+        # bounds and pattern ---------------------------------------------------
+        self._diff_constraints(b, c, loc, direction, kind_prefix)
 
         # const ---------------------------------------------------------------
         if b.get("const") != c.get("const") and ("const" in b or "const" in c):
@@ -264,8 +325,23 @@ class SchemaDiffer:
                 self.diff(bp, cp, loc + ".additionalProperties", direction, kind_prefix)
 
         # compositions --------------------------------------------------------
+        # allOf/anyOf lists of the same length are compared member by member:
+        # an intersection (allOf) or union (anyOf) of members that each got
+        # narrower is narrower, and of members that each got wider is wider, so
+        # the per-member classification carries over. oneOf is not monotone
+        # (widening a member can make a value match two), and a changed member
+        # count has no pairing: both stay UNKNOWN.
         for comp in ("allOf", "oneOf", "anyOf"):
             if b.get(comp) != c.get(comp):
+                b_list, c_list = b.get(comp), c.get(comp)
+                if (comp != "oneOf" and isinstance(b_list, list) and isinstance(c_list, list)
+                        and len(b_list) == len(c_list)):
+                    for i, (b_member, c_member) in enumerate(zip(b_list, c_list)):
+                        if (isinstance(b_member, dict) and isinstance(c_member, dict)
+                                and b_member.get("$ref") and b_member == c_member):
+                            continue  # shared-component change is reported at component level
+                        self.diff(b_member, c_member, f"{loc}.{comp}[{i}]", direction, kind_prefix)
+                    continue
                 if b.get(comp) is None or c.get(comp) is None:
                     self.emit(Change(UNKNOWN, f"{kind_prefix}_{comp}_changed", loc,
                                      f"{comp} composition added or removed",
@@ -315,26 +391,75 @@ class SchemaDiffer:
                                  f"{key} changed", before=_brief(b.get(key)),
                                  after=_brief(c.get(key))))
 
-    def _classify_type_change(self, b_types: set[str], c_types: set[str],
+    def _diff_constraints(self, b: dict, c: dict, loc: str, direction: str,
+                          kind_prefix: str) -> None:
+        for key, loosest in {**LOWER_BOUNDS, **UPPER_BOUNDS}.items():
+            bv, cv = b.get(key), c.get(key)
+            if bv == cv:
+                continue
+            if not all(v is None or (isinstance(v, (int, float)) and not isinstance(v, bool))
+                       for v in (bv, cv)):
+                self.emit(Change(UNKNOWN, f"{kind_prefix}_keyword_changed", loc,
+                                 f"unrecognized schema keyword [{key}] changed",
+                                 before=_brief(bv), after=_brief(cv)))
+                continue
+            be = loosest if bv is None else bv
+            ce = loosest if cv is None else cv
+            if be == ce:
+                self.emit(Change(DOCUMENTATION_ONLY, f"{kind_prefix}_constraint_restated", loc,
+                                 f"[{key}] {bv!r} -> {cv!r} (same effective bound)",
+                                 before=bv, after=cv))
+                continue
+            narrowed = ce > be if key in LOWER_BOUNDS else ce < be
+            self.emit(Change(value_set_category(narrowed, direction),
+                             f"{kind_prefix}_constraint_{'narrowed' if narrowed else 'widened'}", loc,
+                             f"[{key}] {bv!r} -> {cv!r}", before=bv, after=cv))
+
+        bp, cp = b.get("pattern"), c.get("pattern")
+        if bp != cp:
+            if bp is not None and cp is not None:
+                # Two regular expressions cannot be compared for inclusion.
+                self.emit(Change(BREAKING, f"{kind_prefix}_pattern_changed", loc,
+                                 "pattern replaced (inclusion cannot be proven)",
+                                 before=bp, after=cp))
+            else:
+                narrowed = bp is None
+                self.emit(Change(value_set_category(narrowed, direction),
+                                 f"{kind_prefix}_pattern_{'added' if narrowed else 'removed'}", loc,
+                                 f"pattern {'added' if narrowed else 'removed'}",
+                                 before=bp, after=cp))
+
+    def _classify_type_change(self, b: dict, c: dict, b_types: set[str], c_types: set[str],
                               loc: str, direction: str, kind_prefix: str) -> None:
+        # An absent `type` admits every type, so adding one narrows the value
+        # set and removing one widens it.
+        if "type" not in b or "type" not in c:
+            added = "type" not in b
+            self.emit(Change(value_set_category(added, direction),
+                             f"{kind_prefix}_type_{'added' if added else 'removed'}", loc,
+                             f"type {'added' if added else 'removed'} "
+                             f"({sorted(b_types) or 'any'} -> {sorted(c_types) or 'any'})",
+                             before=sorted(b_types), after=sorted(c_types)))
+            return
         added, removed = c_types - b_types, b_types - c_types
         if added == {"null"} and not removed:
-            self.emit(Change(NON_BREAKING, f"{kind_prefix}_nullability_added", loc,
+            self.emit(Change(NON_BREAKING,
+                             f"{kind_prefix}_nullability_added", loc,
                              "type now also accepts/returns null",
-                                 before=sorted(b_types), after=sorted(c_types)))
+                             before=sorted(b_types), after=sorted(c_types)))
             return
         if removed == {"null"} and not added:
             # request: clients may still send null -> server got stricter: BREAKING
             # response: null no longer returned -> clients may handle it: NON_BREAKING
-            category = BREAKING if direction in ("request", "both") else NON_BREAKING
-            if direction == "both":
-                category = BREAKING
-            self.emit(Change(category, f"{kind_prefix}_nullability_removed", loc,
+            self.emit(Change(value_set_category(True, direction),
+                             f"{kind_prefix}_nullability_removed", loc,
                              "type no longer accepts/returns null",
                              before=sorted(b_types), after=sorted(c_types)))
             return
-        if direction == "request":
-            category = BREAKING if removed else NON_BREAKING
+        if b_types and c_types and not added:
+            category = value_set_category(True, direction)
+        elif b_types and c_types and not removed:
+            category = value_set_category(False, direction)
         else:
             category = BREAKING
         self.emit(Change(category, f"{kind_prefix}_type_changed", loc,
@@ -349,8 +474,11 @@ class SchemaDiffer:
         if b_enum is None and c_enum is None:
             return
         if b_enum is None or c_enum is None:
-            self.emit(Change(UNKNOWN, f"{kind_prefix}_enum_added_or_removed", loc,
-                             "enum constraint added or removed (cannot classify without both sets)",
+            # No enum means any value of the type: adding one narrows, removing widens.
+            added = b_enum is None
+            self.emit(Change(value_set_category(added, direction),
+                             f"{kind_prefix}_enum_{'added' if added else 'removed'}", loc,
+                             "enum constraint " + ("added" if added else "removed"),
                              before=_brief(b_enum), after=_brief(c_enum)))
             return
         b_set = set(map(json.dumps, b_enum))
