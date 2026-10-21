@@ -143,7 +143,7 @@ class CompatibilityToolTests(unittest.TestCase):
         report = json.loads(out.read_text())
         self.assertGreater(report["summary"]["NON_BREAKING"], 0)
 
-    def test_new_required_response_field_is_breaking(self):
+    def test_new_required_response_field_is_non_breaking(self):
         baseline = self.write_doc(
             "baseline.json",
             operation_id_doc("owner.things.index", responses={
@@ -163,9 +163,9 @@ class CompatibilityToolTests(unittest.TestCase):
         result = self.run_compat(baseline, candidate,
                                  "--fail-on-breaking", "--json-out", str(out))
 
-        self.assertEqual(result.returncode, 1, result.stdout + result.stderr)
-        codes = self.codes_of(out)
-        self.assertTrue(any("required" in c for c in codes), codes)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual([(c["category"], c["kind"]) for c in self.changes_of(out)],
+                         [("NON_BREAKING", "response_schema_required_field_added")])
 
     def test_removed_5xx_status_is_documentation_only(self):
         baseline = self.write_doc(
@@ -425,7 +425,7 @@ class SchemaRuleTests(unittest.TestCase):
 
         categories = self.by_category(self.response_pair(before, after))
 
-        self.assertEqual(categories, {"NON_BREAKING": {"response_schema_nullability_added"}})
+        self.assertEqual(categories, {"BREAKING": {"response_schema_nullability_added"}})
 
     def test_oneof_pairwise_rewrite_stays_unknown(self):
         before = {"oneOf": [{"type": "object", "properties": {"a": {"type": "string"}}}, {"type": "array"}]}
@@ -547,6 +547,76 @@ class SchemaRuleTests(unittest.TestCase):
                          {"NON_BREAKING": {"response_schema_type_added"}})
         self.assertEqual(self.by_category(self.request_pair(before, after)),
                          {"BREAKING": {"request_schema_type_added"}})
+
+    # -- one rule for requests and responses -----------------------------------
+
+    def test_required_field_added_breaks_requests_not_responses(self):
+        before = {"type": "object", "properties": {"id": {"type": "string"}}}
+        after = {"type": "object", "required": ["code"],
+                 "properties": {"id": {"type": "string"}, "code": {"type": "string"}}}
+        self.assertEqual(self.by_category(self.request_pair(before, after)),
+                         {"BREAKING": {"request_schema_required_field_added"}})
+        self.assertEqual(self.by_category(self.response_pair(before, after)),
+                         {"NON_BREAKING": {"response_schema_required_field_added"}})
+
+    def test_field_becoming_optional_breaks_responses_not_requests(self):
+        before = {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}}
+        after = {"type": "object", "properties": {"id": {"type": "string"}}}
+        self.assertEqual(self.by_category(self.response_pair(before, after)),
+                         {"BREAKING": {"response_schema_field_became_optional"}})
+        self.assertEqual(self.by_category(self.request_pair(before, after)),
+                         {"NON_BREAKING": {"request_schema_field_became_optional"}})
+
+    def test_field_becoming_required_breaks_requests_not_responses(self):
+        before = {"type": "object", "properties": {"id": {"type": "string"}}}
+        after = {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}}
+        self.assertEqual(self.by_category(self.request_pair(before, after)),
+                         {"BREAKING": {"request_schema_field_became_required"}})
+        self.assertEqual(self.by_category(self.response_pair(before, after)),
+                         {"NON_BREAKING": {"response_schema_field_became_required"}})
+
+    def test_null_newly_returned_is_breaking_and_newly_accepted_is_not(self):
+        before, after = {"type": "string"}, {"type": ["string", "null"]}
+        self.assertEqual(self.by_category(self.response_pair(before, after)),
+                         {"BREAKING": {"response_schema_nullability_added"}})
+        self.assertEqual(self.by_category(self.request_pair(before, after)),
+                         {"NON_BREAKING": {"request_schema_nullability_added"}})
+
+    def test_openapi_30_nullable_flag_follows_the_same_rule(self):
+        before, after = {"type": "string"}, {"type": "string", "nullable": True}
+        self.assertEqual(self.by_category(self.response_pair(before, after)),
+                         {"BREAKING": {"response_schema_nullable_changed"}})
+        self.assertEqual(self.by_category(self.request_pair(before, after)),
+                         {"NON_BREAKING": {"request_schema_nullable_changed"}})
+
+    def test_shared_schema_used_both_ways_breaks_either_way(self):
+        schemas = {"Thing": {"type": "object", "properties": {"id": {"type": "string"}}}}
+        changed = {"Thing": {"type": "object", "required": ["code"],
+                             "properties": {"id": {"type": "string"}, "code": {"type": "string"}}}}
+        ref = {"$ref": "#/components/schemas/Thing"}
+        report = self.report(schema_doc(response_schema=ref, request_schema=ref, schemas=schemas),
+                             schema_doc(response_schema=ref, request_schema=ref, schemas=changed))
+        self.assertEqual(self.by_category(report), {"BREAKING": {"component_schema_required_field_added"}})
+
+    def test_component_nested_in_a_request_through_another_component_counts_as_request(self):
+        schemas = {"Line": {"type": "object", "properties": {"id": {"type": "string"}}},
+                   "Order": {"type": "object", "properties": {"lines": {
+                       "type": "array", "items": {"$ref": "#/components/schemas/Line"}}}}}
+        changed = {**schemas, "Line": {"type": "object", "required": ["sku"],
+                                       "properties": {"id": {"type": "string"}, "sku": {"type": "string"}}}}
+        before = schema_doc(response_schema={"$ref": "#/components/schemas/Line"},
+                            request_schema={"$ref": "#/components/schemas/Order"}, schemas=schemas)
+        after = schema_doc(response_schema={"$ref": "#/components/schemas/Line"},
+                           request_schema={"$ref": "#/components/schemas/Order"}, schemas=changed)
+
+        self.assertEqual(self.by_category(self.report(before, after)),
+                         {"BREAKING": {"component_schema_required_field_added"}})
+
+    def test_unreferenced_component_is_judged_strictly(self):
+        schemas = {"Orphan": {"type": "object", "properties": {"id": {"type": "string"}}}}
+        changed = {"Orphan": {"type": "object", "required": ["id"], "properties": {"id": {"type": "string"}}}}
+        report = self.report(schema_doc(schemas=schemas), schema_doc(schemas=changed))
+        self.assertEqual(self.by_category(report), {"BREAKING": {"component_schema_field_became_required"}})
 
     # -- still fail closed -----------------------------------------------------
 
