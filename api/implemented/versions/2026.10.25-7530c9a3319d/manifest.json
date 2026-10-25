@@ -1,0 +1,43 @@
+{
+  "schema": "capitalix-contract-manifest/2",
+  "version": "2026.10.25-7530c9a3319d",
+  "sha256": "7530c9a3319de4a155efc91dc94678592d10aeb23cf99e7d226d73108673fde7",
+  "size": 9216770,
+  "openapi": "3.1.0",
+  "info_version": "1.0.0",
+  "operations": 1264,
+  "source": {
+    "repository": "abdo-taher/capitalix",
+    "commit": "cb85f7b33756f78deff60183fc1115160511e175",
+    "commit_date": "2026-10-25T12:43:33Z",
+    "ref": "integration/E01-FOUNDATION-SAAS",
+    "build_run_id": 40194461614,
+    "build_run_url": "https://github.com/abdo-taher/capitalix/actions/runs/40194461614",
+    "build_workflow": ".github/workflows/contract-build.yml"
+  },
+  "approval": {
+    "approved_by": "GitHub pull request review (owner)",
+    "trusted_approval_id": "github-pull-request-review",
+    "approval_method": "github-pull-request-review",
+    "initial_publication": false,
+    "approval_manifest_sha256": "46e34d93c09ecedaa147c13228762ddd6b3caa77e8b624bd0e16508dd9f42389",
+    "signature": "None: approval is the owner's review of the publication pull request on GitHub. Consumers verify the sha256 digests in this manifest and the build run named in source."
+  },
+  "baseline": {
+    "initial_publication": false,
+    "identity": "published 2026.10.21-6846e086006f",
+    "sha256": "6846e086006f4829947fc80bfaf7510c2ebcc9775354fe1123e71b93aa5c4afe"
+  },
+  "compatibility": {
+    "BREAKING": 8,
+    "UNKNOWN": 0,
+    "NON_BREAKING": 89,
+    "DOCUMENTATION_ONLY": 23,
+    "total": 120
+  },
+  "files": {
+    "openapi.json": "7530c9a3319de4a155efc91dc94678592d10aeb23cf99e7d226d73108673fde7",
+    "approval.json": "46e34d93c09ecedaa147c13228762ddd6b3caa77e8b624bd0e16508dd9f42389",
+    "compatibility.md": "199e0c0f3962d1eccf458166bbb1a6640c08c64311d54f94a95e489848f6123b"
+  }
+}
