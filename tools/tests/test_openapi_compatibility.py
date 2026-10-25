@@ -622,8 +622,164 @@ class SchemaRuleTests(unittest.TestCase):
 
     def test_unrecognized_keyword_still_fails_closed(self):
         categories = self.by_category(self.response_pair(
-            {"type": "array", "items": {}}, {"type": "array", "items": {}, "prefixItems": [{"type": "string"}]}))
+            {"type": "array", "items": {}}, {"type": "array", "items": {}, "uniqueItems": True}))
         self.assertEqual(categories, {"UNKNOWN": {"response_schema_keyword_changed"}})
+
+    # -- const: a one-value set ------------------------------------------------
+
+    def test_response_const_added_inside_the_accepted_values_is_non_breaking(self):
+        categories = self.by_category(self.response_pair(
+            {"type": "integer"}, {"type": "integer", "const": 0}))
+        self.assertEqual(categories, {"NON_BREAKING": {"response_schema_const_added"}})
+
+    def test_request_const_added_is_breaking(self):
+        categories = self.by_category(self.request_pair(
+            {"type": "integer"}, {"type": "integer", "const": 0}))
+        self.assertEqual(categories, {"BREAKING": {"request_schema_const_added"}})
+
+    def test_response_const_removed_is_breaking(self):
+        categories = self.by_category(self.response_pair(
+            {"type": "integer", "const": 0}, {"type": "integer"}))
+        self.assertEqual(categories, {"BREAKING": {"response_schema_const_removed"}})
+
+    def test_request_const_removed_is_non_breaking(self):
+        categories = self.by_category(self.request_pair(
+            {"type": "integer", "const": 0}, {"type": "integer"}))
+        self.assertEqual(categories, {"NON_BREAKING": {"request_schema_const_removed"}})
+
+    def test_const_added_to_a_shared_component_is_breaking(self):
+        schemas = {"Count": {"type": "integer"}}
+        narrowed = {"Count": {"type": "integer", "const": 0}}
+        report = self.report(schema_doc(schemas=schemas), schema_doc(schemas=narrowed))
+        self.assertEqual(self.by_category(report), {"BREAKING": {"component_schema_const_added"}})
+
+    def test_replaced_const_value_is_breaking_in_both_directions(self):
+        before, after = {"type": "integer", "const": 0}, {"type": "integer", "const": 1}
+        self.assertEqual(self.by_category(self.request_pair(before, after)),
+                         {"BREAKING": {"request_schema_const_changed"}})
+        self.assertEqual(self.by_category(self.response_pair(before, after)),
+                         {"BREAKING": {"response_schema_const_changed"}})
+
+    def test_const_outside_the_previous_values_is_breaking_not_narrowing(self):
+        for before, value in (({"type": "integer"}, "zero"),
+                              ({"type": "integer", "maximum": 5}, 9),
+                              ({"type": "string", "enum": ["a", "b"]}, "c"),
+                              ({"type": "string", "minLength": 3}, "ab"),
+                              ({"type": "string", "pattern": "^[0-9]+$"}, "abc")):
+            with self.subTest(before=before, value=value):
+                after = {**before, "const": value}
+                self.assertEqual(self.by_category(self.response_pair(before, after)),
+                                 {"BREAKING": {"response_schema_const_changed"}})
+
+    def test_const_that_cannot_be_checked_against_the_previous_schema_is_unknown(self):
+        for before in ({"anyOf": [{"type": "integer"}, {"type": "string"}]},
+                       {"type": "string", "format": "date-time"},
+                       {"type": "integer", "multipleOf": 2}):
+            with self.subTest(before=before):
+                after = {**before, "const": 0 if before.get("type") != "string" else "2020-01-01T00:00:00Z"}
+                self.assertEqual(self.by_category(self.response_pair(before, after)),
+                                 {"UNKNOWN": {"response_schema_const_changed"}})
+
+    def test_const_null_is_a_value_not_an_absent_keyword(self):
+        categories = self.by_category(self.response_pair(
+            {"type": ["string", "null"]}, {"type": ["string", "null"], "const": None}))
+        self.assertEqual(categories, {"NON_BREAKING": {"response_schema_const_added"}})
+
+    def test_const_zero_and_false_are_different_values(self):
+        categories = self.by_category(self.response_pair(
+            {"type": "integer", "const": 0}, {"type": "boolean", "const": False}))
+        self.assertIn("response_schema_const_changed", categories["BREAKING"])
+
+    # -- prefixItems: tuple arrays ---------------------------------------------
+
+    TUPLE = {"type": "array", "minItems": 2, "maxItems": 2}
+
+    def tuple_of(self, first, second):
+        return {**self.TUPLE, "prefixItems": [first, second]}
+
+    def test_response_tuple_position_narrowed_by_const_is_non_breaking(self):
+        before = self.tuple_of({"type": "string"}, {"type": "integer"})
+        after = self.tuple_of({"type": "string"}, {"type": "integer", "const": 0})
+        report = self.response_pair(before, after)
+        self.assertEqual(self.by_category(report), {"NON_BREAKING": {"response_schema_const_added"}})
+        self.assertTrue(report["changes"][0]["location"].endswith(".prefixItems[1]"))
+
+    def test_request_tuple_position_narrowed_is_breaking(self):
+        before = self.tuple_of({"type": "string"}, {"type": "integer"})
+        after = self.tuple_of({"type": "string"}, {"type": "integer", "const": 0})
+        self.assertEqual(self.by_category(self.request_pair(before, after)),
+                         {"BREAKING": {"request_schema_const_added"}})
+
+    def test_tuple_position_member_properties_are_compared_recursively(self):
+        member = {"type": "object", "properties": {"limit": {"type": "integer"}}}
+        grown = {"type": "object", "properties": {"limit": {"type": "integer"}, "used": {"type": "integer"}}}
+        report = self.response_pair(self.tuple_of(member, member), self.tuple_of(member, grown))
+        self.assertEqual(self.by_category(report), {"NON_BREAKING": {"response_schema_field_added"}})
+        removed = self.response_pair(self.tuple_of(member, grown), self.tuple_of(member, member))
+        self.assertEqual(self.by_category(removed), {"BREAKING": {"response_schema_field_removed"}})
+
+    def test_tuple_position_type_change_is_breaking(self):
+        categories = self.by_category(self.response_pair(
+            self.tuple_of({"type": "string"}, {"type": "integer"}),
+            self.tuple_of({"type": "integer"}, {"type": "integer"})))
+        self.assertEqual(categories, {"BREAKING": {"response_schema_type_changed"}})
+
+    def test_tuple_resized_added_or_removed_stays_unknown(self):
+        two = self.tuple_of({"type": "string"}, {"type": "integer"})
+        three = {**two, "prefixItems": two["prefixItems"] + [{"type": "boolean"}]}
+        plain = {"type": "array", "minItems": 2, "maxItems": 2}
+        for before, after in ((two, three), (three, two), (plain, two), (two, plain)):
+            with self.subTest(before=before, after=after):
+                self.assertEqual(self.by_category(self.response_pair(before, after)),
+                                 {"UNKNOWN": {"response_schema_prefixItems_changed"}})
+
+    def test_identical_tuple_is_no_change(self):
+        tuple_schema = self.tuple_of({"type": "string"}, {"type": "integer"})
+        self.assertEqual(self.response_pair(tuple_schema, dict(tuple_schema))["changes"], [])
+
+
+class SchemaAdmitsTests(unittest.TestCase):
+    """schema_admits answers True/False only when it can prove it, otherwise None."""
+
+    @classmethod
+    def setUpClass(cls):
+        sys.path.insert(0, str(COMPAT.parent))
+        try:
+            import openapi_compatibility as compat
+        finally:
+            sys.path.pop(0)
+        cls.admits = staticmethod(compat.schema_admits)
+
+    def test_types(self):
+        self.assertTrue(self.admits({"type": "integer"}, 0))
+        self.assertTrue(self.admits({"type": "number"}, 0))
+        self.assertTrue(self.admits({"type": "integer"}, 2.0))
+        self.assertFalse(self.admits({"type": "integer"}, 2.5))
+        self.assertFalse(self.admits({"type": "integer"}, True))
+        self.assertFalse(self.admits({"type": "integer"}, "0"))
+        self.assertTrue(self.admits({"type": ["string", "null"]}, None))
+        self.assertTrue(self.admits({"type": "string", "nullable": True}, None))
+        self.assertTrue(self.admits({}, "anything"))
+
+    def test_enum_const_and_bounds(self):
+        self.assertTrue(self.admits({"enum": ["a", None]}, None))
+        self.assertFalse(self.admits({"enum": [0]}, False))
+        self.assertFalse(self.admits({"const": 1}, 2))
+        self.assertTrue(self.admits({"minimum": 1, "maximum": 3}, 3))
+        self.assertFalse(self.admits({"minimum": 1}, 0))
+        self.assertFalse(self.admits({"minLength": 2}, "a"))
+        self.assertFalse(self.admits({"maxLength": 1}, "ab"))
+        self.assertTrue(self.admits({"pattern": "^[0-9]+$"}, "42"))
+        self.assertFalse(self.admits({"pattern": "^[0-9]+$"}, "4x"))
+
+    def test_unprovable_cases_are_none(self):
+        for schema, value in (({"$ref": "#/components/schemas/X"}, 1), ({"allOf": [{}]}, 1),
+                              ({"not": {}}, 1), ({"format": "date-time"}, "2020"),
+                              ({"pattern": "("}, "a"), ({"minimum": "1"}, 1), ({"minLength": "1"}, "a"),
+                              ({"multipleOf": 2}, 4), ({"type": ["string", 3]}, "a"), (True, 1),
+                              ({"properties": {}}, {}), ({"minItems": 1}, [1])):
+            with self.subTest(schema=schema):
+                self.assertIsNone(self.admits(schema, value))
 
 
 if __name__ == "__main__":

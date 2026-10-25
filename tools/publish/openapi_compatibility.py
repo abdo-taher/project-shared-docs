@@ -15,10 +15,13 @@ Requests and responses are judged by one rule: a narrower set of accepted
 values breaks requests and is safe for responses; a wider set is the reverse
 (e.g. null newly returned, or a response field that became optional, is
 BREAKING). A schema shared by requests and responses breaks either way.
+`const` is a one-value set judged by the same rule (and only once the value is
+proven to lie inside the schema without it); `prefixItems` positions are
+compared one by one like allOf members.
   DOCUMENTATION_ONLY  text/metadata/deprecation-marking changes that do not
                       change the runtime contract
   UNKNOWN             a difference the classifier cannot definitively
-                      interpret (oneOf rewrites, allOf/anyOf member-count
+                      interpret (oneOf rewrites, allOf/anyOf/prefixItems member-count
                       changes, unrecognized keywords, unresolvable $refs, ...)
 
 UNKNOWN is never treated as safe. When a definitive compatibility decision
@@ -37,6 +40,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from datetime import datetime, timezone
 from typing import Any, Callable
@@ -67,7 +71,7 @@ SCHEMA_KEYWORDS_INTERPRETED = {
     "$ref", "$comment", "discriminator", "xml", "externalDocs", "allOf",
     "oneOf", "anyOf", "not",
     "minLength", "maxLength", "minItems", "maxItems", "minProperties",
-    "maxProperties", "minimum", "maximum", "pattern",
+    "maxProperties", "minimum", "maximum", "pattern", "prefixItems",
 }
 
 # Numeric bounds: an absent bound is the loosest one (0 for counts, unbounded
@@ -95,6 +99,78 @@ def value_set_category(narrowed: bool, direction: str) -> str:
     if direction == "request":
         return BREAKING if narrowed else NON_BREAKING
     return NON_BREAKING if narrowed else BREAKING
+
+
+def _json_types(value: Any) -> set[str]:
+    if value is None:
+        return {"null"}
+    if isinstance(value, bool):
+        return {"boolean"}
+    if isinstance(value, int):
+        return {"integer", "number"}
+    if isinstance(value, float):
+        return {"integer", "number"} if value.is_integer() else {"number"}
+    if isinstance(value, str):
+        return {"string"}
+    return {"array"} if isinstance(value, list) else {"object"}
+
+
+def _same_json(a: Any, b: Any) -> bool:
+    return json.dumps(a, sort_keys=True) == json.dumps(b, sort_keys=True)
+
+
+def schema_admits(schema: Any, value: Any) -> bool | None:
+    """Whether `schema` accepts the JSON `value`: True, False, or None when
+    that cannot be proven (compositions, references, formats, keywords this
+    tool does not evaluate). None is never treated as an answer of "yes"."""
+    if not isinstance(schema, dict):
+        return None
+    if {"$ref", "allOf", "anyOf", "oneOf", "not", "if", "then", "else"} & set(schema):
+        return None
+    if set(schema) - SCHEMA_KEYWORDS_INTERPRETED - DOC_ONLY_SCHEMA_KEYS:
+        return None
+    types = schema.get("type")
+    if types is not None:
+        wanted = {types} if isinstance(types, str) else set(types) if (
+            isinstance(types, list) and all(isinstance(t, str) for t in types)) else None
+        if wanted is None:
+            return None
+        if not (_json_types(value) & wanted) and not (value is None and schema.get("nullable") is True):
+            return False
+    if "enum" in schema:
+        if not isinstance(schema["enum"], list):
+            return None
+        if not any(_same_json(value, member) for member in schema["enum"]):
+            return False
+    if "const" in schema and not _same_json(value, schema["const"]):
+        return False
+    if isinstance(value, (list, dict)):
+        # Items, properties and the like are not evaluated here.
+        return None if {"items", "prefixItems", "properties", "required", "additionalProperties",
+                        "minItems", "maxItems", "minProperties", "maxProperties"} & set(schema) else True
+    if isinstance(value, str):
+        if "format" in schema:
+            return None
+        for key, test in (("minLength", lambda n: len(value) >= n), ("maxLength", lambda n: len(value) <= n)):
+            if key in schema:
+                if not isinstance(schema[key], int) or isinstance(schema[key], bool):
+                    return None
+                if not test(schema[key]):
+                    return False
+        if "pattern" in schema:
+            try:
+                if not re.search(schema["pattern"], value):
+                    return False
+            except (re.error, TypeError):
+                return None
+    elif isinstance(value, (int, float)) and not isinstance(value, bool):
+        for key, test in (("minimum", lambda n: value >= n), ("maximum", lambda n: value <= n)):
+            if key in schema:
+                if not isinstance(schema[key], (int, float)) or isinstance(schema[key], bool):
+                    return None
+                if not test(schema[key]):
+                    return False
+    return True
 
 
 class RefResolver:
@@ -291,10 +367,7 @@ class SchemaDiffer:
         self._diff_constraints(b, c, loc, direction, kind_prefix)
 
         # const ---------------------------------------------------------------
-        if b.get("const") != c.get("const") and ("const" in b or "const" in c):
-            self.emit(Change(BREAKING, f"{kind_prefix}_const_changed", loc,
-                             "const constraint changed",
-                             before=_brief(b.get("const")), after=_brief(c.get("const"))))
+        self._diff_const(b, c, loc, direction, kind_prefix)
 
         # properties / required ----------------------------------------------
         self._diff_properties(b, c, loc, direction, kind_prefix)
@@ -307,6 +380,21 @@ class SchemaDiffer:
                                  before="items" in b, after="items" in c))
             else:
                 self.diff(b["items"], c["items"], loc + ".items", direction, kind_prefix)
+
+        # prefixItems (tuple arrays) ---------------------------------------------
+        # Each position constrains one element independently, like the members
+        # of an allOf, so equal-length lists are compared position by position.
+        # A changed length has no pairing (the extra positions fall back to
+        # `items`) and stays UNKNOWN.
+        if b.get("prefixItems") != c.get("prefixItems"):
+            b_pos, c_pos = b.get("prefixItems"), c.get("prefixItems")
+            if isinstance(b_pos, list) and isinstance(c_pos, list) and len(b_pos) == len(c_pos):
+                for i, (b_member, c_member) in enumerate(zip(b_pos, c_pos)):
+                    self.diff(b_member, c_member, f"{loc}.prefixItems[{i}]", direction, kind_prefix)
+            else:
+                self.emit(Change(UNKNOWN, f"{kind_prefix}_prefixItems_changed", loc,
+                                 "prefixItems added, removed or resized (positions cannot be paired)",
+                                 before=_brief(b_pos), after=_brief(c_pos)))
 
         # additionalProperties ------------------------------------------------
         def _ap_normalized(schema: dict) -> Any:
@@ -395,6 +483,39 @@ class SchemaDiffer:
                 self.emit(Change(DOCUMENTATION_ONLY, f"{kind_prefix}_documentation", loc,
                                  f"{key} changed", before=_brief(b.get(key)),
                                  after=_brief(c.get(key))))
+
+    def _diff_const(self, b: dict, c: dict, loc: str, direction: str, kind_prefix: str) -> None:
+        """`const` is a one-value set. Adding it narrows the accepted values and
+        removing it widens them, judged like every other value-set change, but
+        only once the value is proven to lie inside the schema that has no
+        `const`; a different or unrelated value is a replacement (BREAKING)."""
+        has_b, has_c = "const" in b, "const" in c
+        if not (has_b or has_c):
+            return
+        if has_b and has_c:
+            if not _same_json(b["const"], c["const"]):
+                self.emit(Change(BREAKING, f"{kind_prefix}_const_changed", loc,
+                                 "const value replaced",
+                                 before=_brief(b["const"]), after=_brief(c["const"])))
+            return
+        added = has_c
+        value = c["const"] if added else b["const"]
+        before, after = (None, _brief(value)) if added else (_brief(value), None)
+        admitted = schema_admits(b if added else c, value)
+        word = "added" if added else "removed"
+        if admitted is None:
+            self.emit(Change(UNKNOWN, f"{kind_prefix}_const_changed", loc,
+                             f"const {word}: cannot prove the value lies within the other schema",
+                             before=before, after=after))
+        elif not admitted:
+            self.emit(Change(BREAKING, f"{kind_prefix}_const_changed", loc,
+                             f"const {word} with a value the other schema does not accept",
+                             before=before, after=after))
+        else:
+            self.emit(Change(value_set_category(added, direction), f"{kind_prefix}_const_{word}", loc,
+                             "const added (value set narrowed to one value)" if added
+                             else "const removed (value set widened)",
+                             before=before, after=after))
 
     def _diff_constraints(self, b: dict, c: dict, loc: str, direction: str,
                           kind_prefix: str) -> None:
