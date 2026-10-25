@@ -1,0 +1,26 @@
+{
+  "schema": "capitalix-contract-approval/2",
+  "decision": "APPROVED",
+  "approval_method": "github-pull-request-review",
+  "approval_note": "Takes effect only when the owner approves and merges the publication pull request; branch protection and the contract-publication-verify check enforce that on GitHub.",
+  "approved_artifact_sha256": "7530c9a3319de4a155efc91dc94678592d10aeb23cf99e7d226d73108673fde7",
+  "baseline_artifact_sha256": "6846e086006f4829947fc80bfaf7510c2ebcc9775354fe1123e71b93aa5c4afe",
+  "compatibility_digest": "bc942e17504a93c60c9763a481bc804749fc27c3c581ad87df28bcd8a6151ae2",
+  "compatibility_summary": {
+    "BREAKING": 8,
+    "UNKNOWN": 0
+  },
+  "approved_scope": [
+    "meetings join: 200 JSON -> 302 redirect (documentation correction, no runtime change); next_action NO_SUPPLIER_ACCOUNT -> REGISTER_ACCOUNT (BR-32); VerifyMobileRequest.otp exactly 6 chars -> 4-8 digits"
+  ],
+  "allow_breaking": true,
+  "allow_unknown": false,
+  "initial_publication": false,
+  "build": {
+    "repository": "abdo-taher/capitalix",
+    "commit": "cb85f7b33756f78deff60183fc1115160511e175",
+    "run_id": 40194461614,
+    "run_url": "https://github.com/abdo-taher/capitalix/actions/runs/40194461614",
+    "branch": "integration/E01-FOUNDATION-SAAS"
+  }
+}
