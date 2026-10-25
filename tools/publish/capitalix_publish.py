@@ -192,6 +192,16 @@ def extract_build(blob: bytes) -> tuple[bytes, dict]:
 
 # --------------------------------------------------------------------------- prepare
 
+def blocking_changes(report: dict, category: str, limit: int = 12) -> str:
+    """One `publish:` line per change that blocks the publication (kind, location, what changed), so the log of a
+    refused run names the offending changes instead of only counting them."""
+    rows = [c for c in report["changes"] if c["category"] == category]
+    lines = [f"\npublish:   {category} {c['kind']} at {c['location']}: {c['description']}" for c in rows[:limit]]
+    if len(rows) > limit:
+        lines.append(f"\npublish:   ... and {len(rows) - limit} more {category} change(s)")
+    return "".join(lines)
+
+
 def prepare(artifact: Path, record: dict, commit_date: str, shared_repo: Path, *, allow_breaking: bool = False,
             allow_unknown: bool = False, approved_scope: list[str] | None = None, repo: str = "") -> str:
     """Write one new version into shared_repo/api/implemented. Returns the version id (or the existing one)."""
@@ -232,12 +242,16 @@ def prepare(artifact: Path, record: dict, commit_date: str, shared_repo: Path, *
         baseline_label, baseline_digest = f"published {current['version']}", current["sha256"]
     report = compat.build_report(baseline_doc, document, baseline_label, f"build {record['commit'][:12]}")
     summary = report["summary"]
+    blockers = []
     if summary["UNKNOWN"] and not allow_unknown:
-        raise Refused(f"{summary['UNKNOWN']} unclassified change(s): UNKNOWN fails closed unless the owner "
-                      "explicitly allows it for this publication")
+        blockers.append(("UNKNOWN", f"{summary['UNKNOWN']} unclassified change(s): UNKNOWN fails closed unless the "
+                         "owner explicitly allows it for this publication"))
     if summary["BREAKING"] and not allow_breaking:
-        raise Refused(f"{summary['BREAKING']} breaking change(s): publication requires an explicit "
-                      "allow-breaking decision recorded in the approval")
+        blockers.append(("BREAKING", f"{summary['BREAKING']} breaking change(s): publication requires an explicit "
+                         "allow-breaking decision recorded in the approval"))
+    if blockers:
+        raise Refused("; ".join(text for _, text in blockers)
+                      + "".join(blocking_changes(report, category) for category, _ in blockers))
     markdown = compat.render_markdown(report)
     compatibility_digest = sha256_bytes(json.dumps(report["changes"], sort_keys=True).encode())
 

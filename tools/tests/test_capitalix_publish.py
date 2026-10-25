@@ -41,6 +41,7 @@ BASE = doc({"/api/public/a": {"get": operation("public.a")}})
 DOC_ONLY = doc({"/api/public/a": {"get": operation("public.a", summary="List a")}})
 ADDITIVE = doc({"/api/public/a": {"get": operation("public.a")}, "/api/public/b": {"get": operation("public.b")}})
 BREAKING = doc({"/api/public/b": {"get": operation("public.b")}})
+TWO = doc({"/api/public/a": {"get": operation("public.a")}, "/api/public/c": {"get": operation("public.c")}})
 
 
 def raw(document):
@@ -187,6 +188,47 @@ class PrepareTests(unittest.TestCase):
         approval = json.loads((self.shared / f"api/implemented/versions/{version}/approval.json").read_text())
         self.assertTrue(approval["allow_breaking"])
         self.assertEqual(approval["approved_scope"], ["public.a removed"])
+        self.assertEqual(pub.verify_tree(self.shared), [])
+
+    def test_refusal_lists_every_blocker_with_its_location(self):
+        self.prepare(TWO)
+        both = doc({"/api/public/c": {"get": operation("public.c", extra={"vendorFlag": 1})}})
+        with self.assertRaises(pub.Refused) as caught:
+            self.prepare(both, commit=SHA2, run_id=8, date="2026-10-21T10:00:00Z")
+        message = str(caught.exception)
+        self.assertIn("unclassified change(s)", message)
+        self.assertIn("breaking change(s)", message)
+        self.assertIn("publish:   BREAKING operation_removed at paths./api/public/a.get", message)
+        self.assertIn("publish:   UNKNOWN operation_keyword_changed at paths./api/public/c.get.vendorFlag", message)
+        self.assertEqual(pub.verify_tree(self.shared), [])
+
+    def test_refusal_names_only_the_blockers_that_were_not_allowed(self):
+        self.prepare(TWO)
+        both = doc({"/api/public/c": {"get": operation("public.c", extra={"vendorFlag": 1})}})
+        with self.assertRaises(pub.Refused) as caught:
+            self.prepare(both, commit=SHA2, run_id=8, date="2026-10-21T10:00:00Z", allow_breaking=True)
+        self.assertIn("unclassified change(s)", str(caught.exception))
+        self.assertNotIn("breaking change(s)", str(caught.exception))
+
+    def test_long_refusals_are_truncated_with_a_count(self):
+        many = doc({f"/api/public/n{i}": {"get": operation(f"public.n{i}")} for i in range(15)})
+        self.prepare(many)
+        with self.assertRaises(pub.Refused) as caught:
+            self.prepare(BASE, commit=SHA2, run_id=8, date="2026-10-21T10:00:00Z")
+        self.assertIn("... and 3 more BREAKING change(s)", str(caught.exception))
+
+    def test_narrowed_response_const_in_a_tuple_publishes_without_any_allow_flag(self):
+        def with_usage(position_schema):
+            schema = {"type": "array", "minItems": 1, "maxItems": 1, "prefixItems": [position_schema]}
+            return doc({"/api/public/a": {"get": operation("public.a", extra={"responses": {"200": {
+                "description": "ok", "content": {"application/json": {"schema": schema}}}}})}})
+        self.prepare(with_usage({"type": "object", "properties": {"limit": {"type": "integer"}}}))
+        version = self.prepare(
+            with_usage({"type": "object", "properties": {"limit": {"type": "integer", "const": 0}}}),
+            commit=SHA2, run_id=8, date="2026-10-21T10:00:00Z")
+        approval = json.loads((self.shared / f"api/implemented/versions/{version}/approval.json").read_text())
+        self.assertFalse(approval["allow_breaking"])
+        self.assertFalse(approval["allow_unknown"])
         self.assertEqual(pub.verify_tree(self.shared), [])
 
     def test_same_bytes_are_a_no_op_and_rollback_and_stale_are_refused(self):
