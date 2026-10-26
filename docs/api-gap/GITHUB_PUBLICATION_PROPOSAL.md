@@ -14,7 +14,7 @@ because artifact attestations are unavailable for private repositories on this p
 - The repository has one **read/write deploy key** titled "capitalix GitLab CI publisher (api/implemented)": that is how
   the publisher writes to `main`. `main` has **no branch protection**.
 - The approval is an HMAC keyed by a secret held by that external system; consumers cannot verify it, only the digests.
-- `docs/CONTRACT_VERSIONING.md` fixes the rules the publisher enforces (immutable versions, no-op on identical bytes,
+- `docs/CONTRACT_VERSIONING.md` fixes the rules the publisher enforces (immutable versions, refusal on identical bytes,
   compatibility classes, signed approval manifest).
 
 **Conclusion:** the existing publisher builds from a commit of a repository that is not the GitHub backend, so a fix
@@ -56,7 +56,7 @@ stay `MERGED_NOT_PUBLISHED` until the owner decides how publication should work.
 ## 4. Acceptance criteria
 
 - A dry-run on the current development head produces a candidate byte-identical to a second run (determinism).
-- Re-publishing identical bytes is a no-op; an existing version directory is never rewritten.
+- Re-publishing bytes that are already published as the current version is refused; an existing version directory is never rewritten.
 - A tampered `openapi.json` fails the digest check; an unattested or foreign-repository attestation fails verification.
 - The workflow cannot write to `main` of `project-shared-docs` directly (branch protection test).
 - A fix PR merged on GitHub appears in a candidate; the coordinator moves the gap to `CONTRACT_PUBLISHED` only after the

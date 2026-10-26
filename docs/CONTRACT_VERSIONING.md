@@ -13,7 +13,8 @@
 ## Publication rules (enforced by the publisher)
 
 - Only bytes signed in the approval manifest are published.
-- Publishing bytes that are already published is a no-op.
+- Publishing bytes that are already published as the current version is
+  refused (re-running a completed publication has no effect).
 - A publication from an older source commit than the current version is
   refused (re-running an old pipeline cannot roll the contract back).
 - Re-publishing a previously published but no-longer-current version is
