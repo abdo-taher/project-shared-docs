@@ -60,6 +60,21 @@
         "total": 1560
       },
       "manifest": "versions/2026.10.26-3e5f85a9fe98/manifest.json"
+    },
+    {
+      "version": "2026.10.26-551d198a747e",
+      "sha256": "551d198a747e80346b16fd6e5ef4255935fedea754bd7e9ed621e56a3b5d70a4",
+      "source_commit": "2c8b16b79cc71f829442cc7154a75fa057c0c115",
+      "source_commit_date": "2026-10-26T13:19:25Z",
+      "initial_publication": false,
+      "compatibility": {
+        "BREAKING": 128,
+        "UNKNOWN": 22,
+        "NON_BREAKING": 1172,
+        "DOCUMENTATION_ONLY": 138,
+        "total": 1460
+      },
+      "manifest": "versions/2026.10.26-551d198a747e/manifest.json"
     }
   ]
 }
