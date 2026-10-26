@@ -1,9 +1,9 @@
 {
   "schema": "capitalix-contract-pointer/1",
-  "version": "2026.10.25-7530c9a3319d",
-  "sha256": "7530c9a3319de4a155efc91dc94678592d10aeb23cf99e7d226d73108673fde7",
-  "source_commit": "cb85f7b33756f78deff60183fc1115160511e175",
-  "source_commit_date": "2026-10-25T12:43:33Z",
-  "openapi": "versions/2026.10.25-7530c9a3319d/openapi.json",
-  "manifest": "versions/2026.10.25-7530c9a3319d/manifest.json"
+  "version": "2026.10.26-3e5f85a9fe98",
+  "sha256": "3e5f85a9fe98f0f8e91cbc0533c21e1a5066523d6cd859fdb58d0d911b628084",
+  "source_commit": "952732c413d5f7287cebab2b24dd7589fbd3d570",
+  "source_commit_date": "2026-10-26T08:26:54Z",
+  "openapi": "versions/2026.10.26-3e5f85a9fe98/openapi.json",
+  "manifest": "versions/2026.10.26-3e5f85a9fe98/manifest.json"
 }
