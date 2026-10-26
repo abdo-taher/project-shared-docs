@@ -45,6 +45,21 @@
         "total": 120
       },
       "manifest": "versions/2026.10.25-7530c9a3319d/manifest.json"
+    },
+    {
+      "version": "2026.10.26-3e5f85a9fe98",
+      "sha256": "3e5f85a9fe98f0f8e91cbc0533c21e1a5066523d6cd859fdb58d0d911b628084",
+      "source_commit": "952732c413d5f7287cebab2b24dd7589fbd3d570",
+      "source_commit_date": "2026-10-26T08:26:54Z",
+      "initial_publication": false,
+      "compatibility": {
+        "BREAKING": 455,
+        "UNKNOWN": 35,
+        "NON_BREAKING": 848,
+        "DOCUMENTATION_ONLY": 222,
+        "total": 1560
+      },
+      "manifest": "versions/2026.10.26-3e5f85a9fe98/manifest.json"
     }
   ]
 }
