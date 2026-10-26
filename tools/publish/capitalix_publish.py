@@ -224,6 +224,9 @@ def prepare(artifact: Path, record: dict, commit_date: str, shared_repo: Path, *
         if current and current.get("sha256") != digest:
             raise Refused(f"contract {digest[:12]} was published as {existing['version']} but current is "
                           f"{current.get('version')}: refusing to roll back")
+        if current and current.get("sha256") == digest:
+            raise Refused(f"contract {digest[:12]} is already published as {existing['version']} (current); "
+                          f"nothing to do")
         return existing["version"]
     if current and current.get("source_commit_date", "") > commit_date:
         raise Refused(f"source commit date {commit_date} is older than the current version {current['version']} "

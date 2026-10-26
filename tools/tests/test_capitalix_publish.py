@@ -231,9 +231,10 @@ class PrepareTests(unittest.TestCase):
         self.assertFalse(approval["allow_unknown"])
         self.assertEqual(pub.verify_tree(self.shared), [])
 
-    def test_same_bytes_are_a_no_op_and_rollback_and_stale_are_refused(self):
+    def test_same_bytes_are_refused_as_already_published_and_rollback_and_stale_are_refused(self):
         first = self.prepare(BASE)
-        self.assertEqual(self.prepare(BASE), first)
+        with self.assertRaisesRegex(pub.Refused, "already published"):
+            self.prepare(BASE)
         second = self.prepare(ADDITIVE, commit=SHA2, run_id=8, date="2026-10-21T10:00:00Z")
         self.assertNotEqual(first, second)
         with self.assertRaisesRegex(pub.Refused, "roll back"):
