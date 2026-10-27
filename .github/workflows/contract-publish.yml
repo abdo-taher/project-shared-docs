@@ -139,10 +139,12 @@ jobs:
                 "`contract-publication-verify` re-checks them.")
           PY
           pr_url="$(gh pr create --repo "$GITHUB_REPOSITORY" --base main --head "$branch" \
-            --title "docs(api): publish contract $VERSION" --body-file pr-body.md \
-            --auto --squash)"
+            --title "docs(api): publish contract $VERSION" --body-file pr-body.md)"
           echo "$pr_url" >> "$GITHUB_STEP_SUMMARY"
           echo "PR_URL=$pr_url" >> "$GITHUB_ENV"
+          # Enable auto-merge so the PR merges automatically once required checks pass.
+          pr_number="$(printf '%s' "$pr_url" | sed 's#.*/##')"
+          gh pr merge "$pr_number" --repo "$GITHUB_REPOSITORY" --auto --squash
       - name: Tell the owner (auto-merge enabled)
         if: ${{ success() }}
         env:
