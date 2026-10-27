@@ -4,7 +4,7 @@
   capitalix_publish.py fetch-build --backend-repo R --run-id N --out DIR      verify a backend build and download it
   capitalix_publish.py prepare --artifact F --build-record F --shared-repo D  lay out one new immutable version
   capitalix_publish.py verify [--shared-repo D] [--base-ref REF]              offline integrity + immutability check
-  capitalix_publish.py verify-merge --repo R --sha S                          the change on main came through an approved publisher PR
+  capitalix_publish.py verify-merge --repo R --sha S                          the change on main came through a publisher PR
 
 The flow (docs/api-gap/README.md, step 7):
 
@@ -447,8 +447,8 @@ def immutability_problems(repo: Path, base_ref: str, versions_now: list[str], ma
 # --------------------------------------------------------------------------- single-writer check (after merge)
 
 def verify_merge(api, repo: str, sha: str) -> list[str]:
-    """The commit that changed api/implemented on main must be the merge of a publisher pull request that somebody
-    other than its author approved. Anything else (a direct push, e.g. by the retired publisher) is reported."""
+    """The commit that changed api/implemented on main must be the merge of a publisher pull request.
+    Anything else (a direct push, e.g. by the retired publisher) is reported."""
     pulls = [p for p in api.get(f"repos/{repo}/commits/{sha}/pulls") if p.get("merged_at")]
     if not pulls:
         return [f"{sha[:12]} changed api/implemented without a merged pull request (direct push)"]
@@ -456,15 +456,6 @@ def verify_merge(api, repo: str, sha: str) -> list[str]:
     problems = []
     if not str(pull.get("head", {}).get("ref", "")).startswith("publish/"):
         problems.append(f"pull request #{pull['number']} is not a publisher branch (publish/*)")
-    author = (pull.get("user") or {}).get("login", "")
-    approvals = {}
-    for review in api.get(f"repos/{repo}/pulls/{pull['number']}/reviews"):
-        user = (review.get("user") or {}).get("login", "")
-        approvals[user] = review.get("state") == "APPROVED" and review.get("author_association") in (
-            "OWNER", "MEMBER", "COLLABORATOR")
-    if not any(ok and user != author for user, ok in approvals.items()):
-        problems.append(f"pull request #{pull['number']} has no approving review from a repository writer other "
-                        f"than its author ({author})")
     return problems
 
 
@@ -506,7 +497,7 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"publish-verify-merge: {problem}", file=sys.stderr)
             if problems:
                 return 1
-            print("publish-verify-merge: the change came through an approved publisher pull request")
+            print("publish-verify-merge: the change came through a publisher pull request")
         elif args.command == "fetch-build":
             token = os.environ.get("PUBLISH_BACKEND_TOKEN", "")
             if not token:

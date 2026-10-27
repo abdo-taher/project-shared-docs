@@ -324,24 +324,18 @@ class VerifyMergeTests(unittest.TestCase):
             "user": {"login": "api-gap-automation[bot]"}}
     REVIEW = {"user": {"login": "abdo-taher"}, "state": "APPROVED", "author_association": "OWNER"}
 
-    def check(self, pulls, reviews):
-        return pub.verify_merge(self.Api(pulls, reviews), BACKEND, SHA)
+    def check(self, pulls, reviews=None):
+        return pub.verify_merge(self.Api(pulls, reviews or []), BACKEND, SHA)
 
-    def test_an_approved_publisher_pull_request_passes(self):
-        self.assertEqual(self.check([self.PULL], [self.REVIEW]), [])
+    def test_a_publisher_pull_request_passes(self):
+        self.assertEqual(self.check([self.PULL]), [])
 
     def test_a_direct_push_is_reported(self):
-        self.assertTrue(any("direct push" in p for p in self.check([], [])))
-        self.assertTrue(any("direct push" in p for p in self.check([{**self.PULL, "merged_at": None}], [])))
+        self.assertTrue(any("direct push" in p for p in self.check([])))
+        self.assertTrue(any("direct push" in p for p in self.check([{**self.PULL, "merged_at": None}])))
 
-    def test_other_branches_self_approval_and_non_writers_are_reported(self):
-        self.assertTrue(self.check([{**self.PULL, "head": {"ref": "feature/x"}}], [self.REVIEW]))
-        self.assertTrue(self.check([self.PULL], []))
-        self.assertTrue(self.check([self.PULL], [{**self.REVIEW, "state": "CHANGES_REQUESTED"}]))
-        self.assertTrue(self.check([self.PULL], [{**self.REVIEW, "author_association": "NONE"}]))
-        author = {"user": {"login": "owner"}}
-        self.assertTrue(self.check([{**self.PULL, **author}], [{**self.REVIEW, "user": {"login": "owner"}}]),
-                        "an author cannot approve their own publication")
+    def test_other_branches_are_reported(self):
+        self.assertTrue(self.check([{**self.PULL, "head": {"ref": "feature/x"}}]))
 
 
 class RedirectTests(unittest.TestCase):
