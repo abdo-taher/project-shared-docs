@@ -30,9 +30,13 @@ class PublishWorkflowTests(unittest.TestCase):
 
     def test_publisher_never_pushes_to_main_or_merges_or_forces(self):
         body = text("contract-publish.yml")
-        for forbidden in ("push origin main", "HEAD:main", "--force", "-f origin", "gh pr merge", "--admin",
-                          "auto-merge", "gh api -X PUT", "merge_method"):
+        for forbidden in ("push origin main", "HEAD:main", "--force", "-f origin", "--admin",
+                          "gh api -X PUT", "merge_method"):
             self.assertNotIn(forbidden, body)
+        # auto-merge is enabled (not a direct merge); the merge itself is performed by GitHub when checks pass
+        self.assertIn("gh pr merge", body)
+        self.assertIn("--auto", body)
+        self.assertIn("--squash", body)
         self.assertIn('branch="publish/$VERSION"', body)
         self.assertIn("refusing to overwrite", body)
 
@@ -117,7 +121,8 @@ class AutoReleaseWorkflowTests(unittest.TestCase):
 
     def test_owner_hand_offs_are_reported_by_the_workflow_that_reaches_them(self):
         publish, verify = text("contract-publish.yml"), text("contract-publication-verify.yml")
-        self.assertIn("ACTION NEEDED", publish)
+        self.assertIn("auto-merge", publish)
+        self.assertIn("Tell the owner (auto-merge enabled)", publish)
         self.assertIn("Tell the owner (stopped)", publish)
         self.assertIn("Published:", verify)
         self.assertIn("issues: write", verify)
