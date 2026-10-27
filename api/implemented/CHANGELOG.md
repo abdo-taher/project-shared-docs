@@ -3,6 +3,10 @@
 Newest first. Each entry names what consumers must do. The exact operation
 diff of every published version is in `versions/<version>/compatibility.md`.
 
+## 2026.10.27-abe5a72d2ae0
+
+Built by abdo-taher/capitalix@71d380a36251 (run https://github.com/abdo-taher/capitalix/actions/runs/40472403917). Changes vs the previous version: 0 breaking, 0 unclassified, 0 non-breaking, 2 documentation-only. Full list: `versions/2026.10.27-abe5a72d2ae0/compatibility.md`. Upgrade explicitly: `python3 tool/capitalix_contract.py update --version 2026.10.27-abe5a72d2ae0`, then run your tests.
+
 ## 2026.10.26-551d198a747e
 
 Built by abdo-taher/capitalix@2c8b16b79cc7 (run https://github.com/abdo-taher/capitalix/actions/runs/40329737750). Changes vs the previous version: 128 breaking, 22 unclassified, 1172 non-breaking, 138 documentation-only. Full list: `versions/2026.10.26-551d198a747e/compatibility.md`. Upgrade explicitly: `python3 tool/capitalix_contract.py update --version 2026.10.26-551d198a747e`, then run your tests.

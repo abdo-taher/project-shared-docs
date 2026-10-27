@@ -1,0 +1,24 @@
+{
+  "schema": "capitalix-contract-approval/2",
+  "decision": "APPROVED",
+  "approval_method": "github-pull-request-review",
+  "approval_note": "Takes effect only when the owner approves and merges the publication pull request; branch protection and the contract-publication-verify check enforce that on GitHub.",
+  "approved_artifact_sha256": "abe5a72d2ae0ec2ffad5db173589501943942289a132ed7393c8af3e05708abf",
+  "baseline_artifact_sha256": "551d198a747e80346b16fd6e5ef4255935fedea754bd7e9ed621e56a3b5d70a4",
+  "compatibility_digest": "b7b2cf6db84862d3954043d1f2876f783cf09cdecb50ad264d2586de5c27173c",
+  "compatibility_summary": {
+    "BREAKING": 0,
+    "UNKNOWN": 0
+  },
+  "approved_scope": [],
+  "allow_breaking": false,
+  "allow_unknown": false,
+  "initial_publication": false,
+  "build": {
+    "repository": "abdo-taher/capitalix",
+    "commit": "71d380a362515d664ec5e7e2be4a4011fe628b8d",
+    "run_id": 40472403917,
+    "run_url": "https://github.com/abdo-taher/capitalix/actions/runs/40472403917",
+    "branch": "integration/E01-FOUNDATION-SAAS"
+  }
+}
