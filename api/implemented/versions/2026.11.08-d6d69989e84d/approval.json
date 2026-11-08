@@ -1,0 +1,26 @@
+{
+  "schema": "capitalix-contract-approval/2",
+  "decision": "APPROVED",
+  "approval_method": "github-pull-request-review",
+  "approval_note": "Takes effect only when the owner approves and merges the publication pull request; branch protection and the contract-publication-verify check enforce that on GitHub.",
+  "approved_artifact_sha256": "d6d69989e84d99e76af3e3f26af5dad5b608bf35f900370677b6f7c467c7c665",
+  "baseline_artifact_sha256": "abe5a72d2ae0ec2ffad5db173589501943942289a132ed7393c8af3e05708abf",
+  "compatibility_digest": "315d52786d067ebdfe096e3e29097a0a2f17ac967b38fd5782757648a72391c4",
+  "compatibility_summary": {
+    "BREAKING": 1226,
+    "UNKNOWN": 104
+  },
+  "approved_scope": [
+    "contract for production 8a07409 (data exchange, Foodics OAuth, settings, mail)"
+  ],
+  "allow_breaking": true,
+  "allow_unknown": true,
+  "initial_publication": false,
+  "build": {
+    "repository": "abdo-taher/capitalix",
+    "commit": "b4e32aec3c7e0dd9a47bef7f55be2fc9c2d02be2",
+    "run_id": 42469024644,
+    "run_url": "https://github.com/abdo-taher/capitalix/actions/runs/42469024644",
+    "branch": "integration/E01-FOUNDATION-SAAS"
+  }
+}
